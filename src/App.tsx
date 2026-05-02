@@ -1,29 +1,24 @@
 import {
-  ArrowUpRight,
   CalendarDays,
   ChevronRight,
   CircleDot,
-  Filter,
   Globe2,
   LayoutDashboard,
-  ListFilter,
-  MapPin,
+  Moon,
   Search,
   ShieldCheck,
+  Star,
+  Sun,
 } from "lucide-react";
-import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { EventSourceLabel } from "@/components/EventSourceLabel";
+import { EventStatusBadge } from "@/components/EventStatusBadge";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { QuickDateTabs, type DatePreset } from "@/components/QuickDateTabs";
+import { ResponsiveEventList } from "@/components/ResponsiveEventList";
+import { SaveEventButton } from "@/components/SaveEventButton";
+import { SavedEventsPage } from "@/components/SavedEventsPage";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -32,240 +27,316 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { mockEvents, mockSports, type EventRecord, type Status } from "@/mock/schedule";
+import { useEvents } from "@/hooks/useEvents";
+import { useSavedEvents } from "@/hooks/useSavedEvents";
+import { translations, type Language, type Translation } from "@/i18n/translations";
+import { formatDateRange, formatLocation } from "@/lib/event-format";
+import type { EventRecord, Status } from "@/mock/schedule";
 
-type Page = "home" | "events" | "event" | "sport" | "organization";
+type Theme = "light" | "dark";
+type Route = { name: "home" } | { name: "events" } | { name: "saved" } | { name: "event"; id: number };
 
-const events = mockEvents;
-
-const ui = {
-  allSports: "ყველა სპორტი",
-  allOrganizations: "ყველა ორგანიზაცია",
-  allCountries: "ყველა ქვეყანა",
-  allStatuses: "ყველა სტატუსი",
+type EventFilters = {
+  date: DatePreset;
+  sport: string;
+  organization: string;
+  country: string;
+  status: string;
+  from: string;
+  to: string;
+  query: string;
 };
 
-const sportLabels: Record<string, string> = {
-  "All sports": ui.allSports,
-  Judo: "ძიუდო",
-  Wrestling: "ჭიდაობა",
-  Boxing: "კრივი",
-  Taekwondo: "ტაეკვონდო",
+const themeStorageKey = "sportsgeorgia-theme";
+const languageStorageKey = "sportsgeorgia-language";
+const emptyFilters: EventFilters = {
+  date: "",
+  sport: "",
+  organization: "",
+  country: "",
+  status: "",
+  from: "",
+  to: "",
+  query: "",
 };
 
-const organizationLabels: Record<string, string> = {
-  "All organizations": ui.allOrganizations,
-  "International Judo Federation": "ძიუდოს საერთაშორისო ფედერაცია",
-  "European Judo Union": "ევროპის ძიუდოს კავშირი",
-  "Judo Union of Asia": "აზიის ძიუდოს კავშირი",
-  "Panamerican Judo Confederation": "პანამერიკის ძიუდოს კონფედერაცია",
-};
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "light";
 
-const countryLabels: Record<string, string> = {
-  "All countries": ui.allCountries,
-  Georgia: "საქართველო",
-  Turkiye: "თურქეთი",
-  Czechia: "ჩეხეთი",
-  Azerbaijan: "აზერბაიჯანი",
-  France: "საფრანგეთი",
-  Mongolia: "მონღოლეთი",
-  Japan: "იაპონია",
-  Peru: "პერუ",
-};
+  const storedTheme = window.localStorage.getItem(themeStorageKey);
+  if (storedTheme === "light" || storedTheme === "dark") return storedTheme;
 
-const cityLabels: Record<string, string> = {
-  Tbilisi: "თბილისი",
-  Antalya: "ანტალია",
-  Prague: "პრაღა",
-  Baku: "ბაქო",
-  Paris: "პარიზი",
-  Ulaanbaatar: "ულან-ბატორი",
-  Tokyo: "ტოკიო",
-  Lima: "ლიმა",
-};
-
-const eventTitleLabels: Record<string, string> = {
-  "Tbilisi Grand Slam 2026": "თბილისის გრანდ სლემი 2026",
-  "Antalya Grand Slam 2026": "ანტალიის გრანდ სლემი 2026",
-  "European Judo Championships": "ევროპის ძიუდოს ჩემპიონატი",
-  "World Judo Championships": "მსოფლიო ძიუდოს ჩემპიონატი",
-  "Paris Grand Slam 2025": "პარიზის გრანდ სლემი 2025",
-  "Asia-Oceania Judo Championships": "აზია-ოკეანიის ძიუდოს ჩემპიონატი",
-  "Tokyo Grand Slam 2026": "ტოკიოს გრანდ სლემი 2026",
-  "Panamerican-Oceania Championships": "პანამერიკა-ოკეანიის ჩემპიონატი",
-};
-
-const statusLabelKa: Record<Status, string> = {
-  upcoming: "მომავალი",
-  live: "მიმდინარე",
-  completed: "დასრულებული",
-};
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("ka-GE", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  }).format(new Date(`${value}T00:00:00`));
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function dateRange(event: EventRecord) {
-  if (event.startDate === event.endDate) return formatDate(event.startDate);
-  return `${formatDate(event.startDate)} - ${formatDate(event.endDate)}`;
+function getInitialLanguage(): Language {
+  if (typeof window === "undefined") return "ka";
+
+  const storedLanguage = window.localStorage.getItem(languageStorageKey);
+  return storedLanguage === "en" ? "en" : "ka";
 }
 
-function eventTitle(event: EventRecord) {
-  return eventTitleLabels[event.title] ?? event.title;
+function useThemeMode() {
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem(themeStorageKey, theme);
+  }, [theme]);
+
+  return {
+    theme,
+    toggleTheme: () => setTheme((current) => (current === "dark" ? "light" : "dark")),
+  };
 }
 
-function eventLocation(event: EventRecord) {
-  return `${cityLabels[event.city] ?? event.city}, ${countryLabels[event.country] ?? event.country}`;
+function useLanguageMode() {
+  const [language, setLanguage] = useState<Language>(getInitialLanguage);
+
+  useEffect(() => {
+    document.documentElement.lang = language === "ka" ? "ka-GE" : "en";
+    window.localStorage.setItem(languageStorageKey, language);
+  }, [language]);
+
+  return { language, setLanguage };
 }
 
-function optionLabel(option: string) {
-  if (option === "All statuses") return ui.allStatuses;
-  if (option in statusLabelKa) return statusLabelKa[option as Status];
-  return sportLabels[option] ?? organizationLabels[option] ?? countryLabels[option] ?? option;
+function currentRoute(): Route {
+  const path = window.location.pathname;
+  const eventMatch = path.match(/^\/events\/(\d+)$/);
+  if (eventMatch) return { name: "event", id: Number(eventMatch[1]) };
+  if (path === "/events") return { name: "events" };
+  if (path === "/saved") return { name: "saved" };
+  return { name: "home" };
 }
 
-function countLabel(count: number, noun: string) {
-  return `${count} ${noun}`;
+function useBrowserRoute() {
+  const [route, setRoute] = useState<Route>(currentRoute);
+  const [searchParams, setSearchParams] = useState(() => new URLSearchParams(window.location.search));
+
+  useEffect(() => {
+    const syncRoute = () => {
+      setRoute(currentRoute());
+      setSearchParams(new URLSearchParams(window.location.search));
+    };
+
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  const navigate = (path: string, params?: URLSearchParams) => {
+    const query = params?.toString();
+    window.history.pushState(null, "", `${path}${query ? `?${query}` : ""}`);
+    setRoute(currentRoute());
+    setSearchParams(new URLSearchParams(window.location.search));
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
+
+  const updateSearch = (updates: Partial<EventFilters>) => {
+    const nextParams = new URLSearchParams(window.location.search);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) nextParams.set(key, value);
+      else nextParams.delete(key);
+    });
+    navigate("/events", nextParams);
+  };
+
+  return { route, searchParams, navigate, updateSearch };
+}
+
+function filtersFromParams(searchParams: URLSearchParams): EventFilters {
+  return {
+    date: (searchParams.get("date") as DatePreset) || "",
+    sport: searchParams.get("sport") ?? "",
+    organization: searchParams.get("organization") ?? "",
+    country: searchParams.get("country") ?? "",
+    status: searchParams.get("status") ?? "",
+    from: searchParams.get("from") ?? "",
+    to: searchParams.get("to") ?? "",
+    query: searchParams.get("query") ?? "",
+  };
+}
+
+function addDays(date: Date, days: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function isoDate(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function presetRange(preset: DatePreset) {
+  const today = new Date();
+  if (preset === "today") return { from: isoDate(today), to: isoDate(today) };
+  if (preset === "week") return { from: isoDate(today), to: isoDate(addDays(today, 6)) };
+  if (preset === "month") return { from: isoDate(today), to: isoDate(addDays(today, 30)) };
+  return { from: "", to: "" };
+}
+
+function filterEvents(events: EventRecord[], filters: EventFilters) {
+  const preset = presetRange(filters.date);
+  const from = filters.from || preset.from;
+  const to = filters.to || preset.to;
+  const query = filters.query.trim().toLowerCase();
+
+  return events.filter((event) => {
+    const matchesSport = !filters.sport || event.sport === filters.sport || event.sportSlug === filters.sport;
+    const matchesOrganization =
+      !filters.organization ||
+      event.organization === filters.organization ||
+      event.organizationSlug === filters.organization;
+    const matchesCountry = !filters.country || event.country === filters.country;
+    const matchesStatus = !filters.status || event.status === filters.status;
+    const matchesFrom = !from || event.endDate >= from;
+    const matchesTo = !to || event.startDate <= to;
+    const matchesQuery =
+      !query ||
+      [event.title, event.sport, event.organization, event.country, event.city]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+
+    return (
+      matchesSport &&
+      matchesOrganization &&
+      matchesCountry &&
+      matchesStatus &&
+      matchesFrom &&
+      matchesTo &&
+      matchesQuery
+    );
+  });
+}
+
+function uniqueValues(events: EventRecord[], key: keyof EventRecord) {
+  return Array.from(new Set(events.map((event) => String(event[key])).filter(Boolean))).sort();
+}
+
+function sortUpcoming(events: EventRecord[]) {
+  const today = isoDate(new Date());
+  return [...events]
+    .filter((event) => event.endDate >= today)
+    .sort((first, second) => first.startDate.localeCompare(second.startDate));
 }
 
 export function App() {
-  const [page, setPage] = useState<Page>("events");
-  const [selectedEventId, setSelectedEventId] = useState(1);
-  const [filters, setFilters] = useState({
-    sport: "All sports",
-    organization: "All organizations",
-    country: "All countries",
-    status: "All statuses",
-    from: "",
-    to: "",
-    query: "",
-  });
+  const { events, isLoading, isFallback, error } = useEvents();
+  const { savedIds, isSaved, toggleSaved } = useSavedEvents();
+  const { theme, toggleTheme } = useThemeMode();
+  const { language, setLanguage } = useLanguageMode();
+  const { route, searchParams, navigate, updateSearch } = useBrowserRoute();
+  const t = translations[language];
+  const filters = useMemo(() => filtersFromParams(searchParams), [searchParams]);
 
-  const selectedEvent = events.find((event) => event.id === selectedEventId) ?? events[0];
-  const sports = ["All sports", ...Array.from(new Set(events.map((event) => event.sport)))];
-  const organizations = [
-    "All organizations",
-    ...Array.from(new Set(events.map((event) => event.organization))),
-  ];
-  const countries = ["All countries", ...Array.from(new Set(events.map((event) => event.country)))];
-  const statuses = ["All statuses", "upcoming", "live", "completed"];
+  const filteredEvents = useMemo(() => filterEvents(events, filters), [events, filters]);
+  const savedEvents = useMemo(
+    () => events.filter((event) => savedIds.includes(event.id)),
+    [events, savedIds],
+  );
+  const selectedEvent = route.name === "event" ? events.find((event) => event.id === route.id) : undefined;
 
-  const filteredEvents = useMemo(() => {
-    return events.filter((event) => {
-      const matchesSport = filters.sport === "All sports" || event.sport === filters.sport;
-      const matchesOrganization =
-        filters.organization === "All organizations" || event.organization === filters.organization;
-      const matchesCountry =
-        filters.country === "All countries" || event.country === filters.country;
-      const matchesStatus =
-        filters.status === "All statuses" || event.status === filters.status;
-      const matchesFrom = !filters.from || event.startDate >= filters.from;
-      const matchesTo = !filters.to || event.startDate <= filters.to;
-      const query = filters.query.trim().toLowerCase();
-      const matchesQuery =
-        !query ||
-        [event.title, event.organization, event.country, event.city]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
-
-      return (
-        matchesSport &&
-        matchesOrganization &&
-        matchesCountry &&
-        matchesStatus &&
-        matchesFrom &&
-        matchesTo &&
-        matchesQuery
-      );
+  const openDetails = (eventId: number) => navigate(`/events/${eventId}`);
+  const openEventsWith = (updates: Partial<EventFilters>) => {
+    const params = new URLSearchParams();
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value) params.set(key, value);
     });
-  }, [filters]);
-
-  const showEvent = (event: EventRecord) => {
-    setSelectedEventId(event.id);
-    setPage("event");
+    navigate("/events", params);
   };
 
   return (
-    <div className="app-shell">
-      <header className="site-header">
-        <div className="site-topbar">
-          <div className="brand">
-            <div className="brand-mark">
+    <div className="sg-app">
+      <header className="sg-header">
+        <div className="sg-topbar">
+          <button className="sg-brand" type="button" onClick={() => navigate("/")}>
+            <span className="sg-brand-mark">
               <CircleDot size={19} />
-            </div>
-            <div>
-              <strong>sportsgeorgia</strong>
-              <span>ოფიციალური შეჯიბრებების ინდექსი</span>
-            </div>
-          </div>
+            </span>
+            <span>
+              <strong>{t.appName}</strong>
+              <small>{t.tagline}</small>
+            </span>
+          </button>
 
-          <div className="source-panel">
-            <span>დაფარვა</span>
-            <strong>4 წყაროს ჯგუფი</strong>
-            <p>ფედერაციები, რეგიონები, ღონისძიებები</p>
+          <div className="sg-header-actions">
+            <LanguageToggle language={language} onChange={setLanguage} />
+            <button
+              className="theme-toggle"
+              type="button"
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              onClick={toggleTheme}
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+              <span>{theme === "dark" ? "Light" : "Dark"}</span>
+            </button>
           </div>
         </div>
 
-        <nav className="global-nav" aria-label="მთავარი ნავიგაცია">
-          <NavButton active={page === "home"} icon={<LayoutDashboard />} label="მთავარი" onClick={() => setPage("home")} />
-          <NavButton active={page === "events"} icon={<CalendarDays />} label="ღონისძიებები" onClick={() => setPage("events")} />
-          <NavButton active={page === "sport"} icon={<ShieldCheck />} label="ძიუდო" onClick={() => setPage("sport")} />
-          <NavButton active={page === "organization"} icon={<Globe2 />} label="ორგანიზაციები" onClick={() => setPage("organization")} />
+        <nav className="sg-nav" aria-label="Main navigation">
+          <NavButton active={route.name === "home"} icon={<LayoutDashboard />} label={t.navHome} onClick={() => navigate("/")} />
+          <NavButton active={route.name === "events" || route.name === "event"} icon={<CalendarDays />} label={t.navEvents} onClick={() => navigate("/events")} />
+          <NavButton active={route.name === "saved"} icon={<Star />} label={t.navSaved} onClick={() => navigate("/saved")} />
         </nav>
       </header>
 
-      <main className="content">
-        {page === "home" && (
-          <HomePage events={events} setPage={setPage} showEvent={showEvent} />
+      <main className="sg-content">
+        {isFallback && !isLoading && (
+          <div className="sg-api-note">{error ? t.apiError : "VITE_API_BASE_URL is not configured. Showing local development data."}</div>
         )}
 
-        {page === "events" && (
+        {route.name === "home" && (
+          <HomePage
+            events={events}
+            isLoading={isLoading}
+            isSaved={isSaved}
+            language={language}
+            t={t}
+            onOpenDetails={openDetails}
+            onOpenEventsWith={openEventsWith}
+            onToggleSaved={toggleSaved}
+          />
+        )}
+
+        {route.name === "events" && (
           <EventsPage
-            title="ღონისძიებები"
-            subtitle="დაათვალიერე ოფიციალური სპორტული კალენდრები, შეადარე ორგანიზაციები და გაფილტრე თარიღით ან სტატუსით."
             events={filteredEvents}
             filters={filters}
-            setFilters={setFilters}
-            sports={sports}
-            organizations={organizations}
-            countries={countries}
-            statuses={statuses}
-            showEvent={showEvent}
+            isLoading={isLoading}
+            language={language}
+            sourceEvents={events}
+            t={t}
+            isSaved={isSaved}
+            onOpenDetails={openDetails}
+            onToggleSaved={toggleSaved}
+            onUpdateFilters={updateSearch}
+            onClearFilters={() => navigate("/events")}
           />
         )}
 
-        {page === "event" && <EventDetails event={selectedEvent} setPage={setPage} />}
-
-        {page === "sport" && (
-          <EventsPage
-            title="ძიუდო"
-            subtitle="შეჯიბრებების განრიგი ძიუდოს ორგანიზაციებისა და ოფიციალური კალენდრების მიხედვით."
-            events={events.filter((event) => event.sportSlug === "judo")}
-            filters={filters}
-            setFilters={setFilters}
-            sports={sports}
-            organizations={organizations}
-            countries={countries}
-            statuses={statuses}
-            showEvent={showEvent}
+        {route.name === "saved" && (
+          <SavedEventsPage
+            events={savedEvents}
+            isSaved={isSaved}
+            language={language}
+            t={t}
+            onOpenDetails={openDetails}
+            onToggleSaved={toggleSaved}
           />
         )}
 
-        {page === "organization" && (
-          <OrganizationPage events={events} showEvent={showEvent} setPage={setPage} />
+        {route.name === "event" && selectedEvent && (
+          <EventDetailsPage
+            event={selectedEvent}
+            isSaved={isSaved(selectedEvent.id)}
+            language={language}
+            t={t}
+            onBack={() => navigate("/events")}
+            onToggleSaved={toggleSaved}
+          />
         )}
       </main>
     </div>
@@ -284,7 +355,7 @@ function NavButton({
   onClick: () => void;
 }) {
   return (
-    <button className={`nav-button ${active ? "active" : ""}`} onClick={onClick}>
+    <button className={`sg-nav-button ${active ? "active" : ""}`} type="button" onClick={onClick}>
       {icon}
       <span>{label}</span>
     </button>
@@ -293,319 +364,200 @@ function NavButton({
 
 function HomePage({
   events,
-  setPage,
-  showEvent,
+  isLoading,
+  language,
+  t,
+  isSaved,
+  onToggleSaved,
+  onOpenDetails,
+  onOpenEventsWith,
 }: {
   events: EventRecord[];
-  setPage: (page: Page) => void;
-  showEvent: (event: EventRecord) => void;
+  isLoading: boolean;
+  language: Language;
+  t: Translation;
+  isSaved: (eventId: number) => boolean;
+  onToggleSaved: (eventId: number) => void;
+  onOpenDetails: (eventId: number) => void;
+  onOpenEventsWith: (updates: Partial<EventFilters>) => void;
 }) {
-  const upcoming = events.filter((event) => event.status !== "completed").slice(0, 4);
+  const upcomingEvents = sortUpcoming(events).slice(0, 5);
 
   return (
-    <div className="page-stack">
-      <section className="hero">
+    <div className="sg-page-stack">
+      <section className="sg-hero">
         <div>
-          <span className="eyebrow">ოფიციალური განრიგების აგრეგატორი</span>
-          <h1>შეადარე სპორტული კალენდრები ერთ სივრცეში</h1>
-          <p>
-            ნახე ფედერაციები, ქვეყნები, სტატუსები და ოფიციალური წყაროები სუფთა შეჯიბრებების ინდექსში.
-          </p>
+          <span className="sg-eyebrow">{t.quickLinks}</span>
+          <h1>{t.heroTitle}</h1>
+          <p>{t.heroSubtitle}</p>
         </div>
-        <Button className="primary-button" onClick={() => setPage("events")}>
-          ღონისძიებების ნახვა
+        <Button className="sg-primary-button" onClick={() => onOpenEventsWith({})}>
+          {t.browseEvents}
           <ChevronRight size={17} />
         </Button>
       </section>
 
-      <section className="category-row" aria-label="სპორტის კატეგორიები">
-        {mockSports.map((sport) => (
-          <button className={`category-tile ${sport.available ? "ready" : ""}`} key={sport.slug}>
-            <span>{sportLabels[sport.name] ?? sport.name}</span>
-            <small>{sport.available ? countLabel(sport.eventCount, "ღონისძიება") : "მალე დაემატება"}</small>
-          </button>
-        ))}
+      <section className="sg-quick-links" aria-label={t.quickLinks}>
+        <QuickLink label={t.today} onClick={() => onOpenEventsWith({ date: "today" })} />
+        <QuickLink label={t.thisWeek} onClick={() => onOpenEventsWith({ date: "week" })} />
+        <QuickLink label={t.thisMonth} onClick={() => onOpenEventsWith({ date: "month" })} />
+        <QuickLink label={t.judo} onClick={() => onOpenEventsWith({ sport: "Judo" })} />
       </section>
 
-      <section className="panel">
-        <SectionHeader title="მომავალი ღონისძიებები" meta={countLabel(upcoming.length, "რჩეული")} />
-        <EventTable events={upcoming} showEvent={showEvent} compact />
+      <section className="sg-panel">
+        <div className="sg-panel-header">
+          <div>
+            <span className="sg-eyebrow">{t.upcomingEvents}</span>
+            <h2>{t.upcomingEvents}</h2>
+          </div>
+          <strong>{upcomingEvents.length} {t.results}</strong>
+        </div>
+        {isLoading ? (
+          <div className="sg-empty-state">{t.loadingEvents}</div>
+        ) : (
+          <ResponsiveEventList
+            events={upcomingEvents}
+            isSaved={isSaved}
+            language={language}
+            t={t}
+            onOpenDetails={onOpenDetails}
+            onToggleSaved={onToggleSaved}
+          />
+        )}
       </section>
     </div>
+  );
+}
+
+function QuickLink({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button className="sg-quick-link" type="button" onClick={onClick}>
+      <span>{label}</span>
+      <ChevronRight size={16} />
+    </button>
   );
 }
 
 function EventsPage({
-  title,
-  subtitle,
+  sourceEvents,
   events,
   filters,
-  setFilters,
-  sports,
-  organizations,
-  countries,
-  statuses,
-  showEvent,
+  isLoading,
+  language,
+  t,
+  isSaved,
+  onToggleSaved,
+  onOpenDetails,
+  onUpdateFilters,
+  onClearFilters,
 }: {
-  title: string;
-  subtitle: string;
+  sourceEvents: EventRecord[];
   events: EventRecord[];
-  filters: {
-    sport: string;
-    organization: string;
-    country: string;
-    status: string;
-    from: string;
-    to: string;
-    query: string;
-  };
-  setFilters: React.Dispatch<React.SetStateAction<{
-    sport: string;
-    organization: string;
-    country: string;
-    status: string;
-    from: string;
-    to: string;
-    query: string;
-  }>>;
-  sports: string[];
-  organizations: string[];
-  countries: string[];
-  statuses: string[];
-  showEvent: (event: EventRecord) => void;
+  filters: EventFilters;
+  isLoading: boolean;
+  language: Language;
+  t: Translation;
+  isSaved: (eventId: number) => boolean;
+  onToggleSaved: (eventId: number) => void;
+  onOpenDetails: (eventId: number) => void;
+  onUpdateFilters: (updates: Partial<EventFilters>) => void;
+  onClearFilters: () => void;
 }) {
+  const sports = uniqueValues(sourceEvents, "sport");
+  const organizations = uniqueValues(sourceEvents, "organization");
+  const countries = uniqueValues(sourceEvents, "country");
+  const statuses: Status[] = ["upcoming", "live", "completed"];
+
   return (
-    <div className="events-layout">
-      <aside className="filters">
-        <div className="filters-title">
-          <Filter size={18} />
-          <div>
-            <strong>ფილტრები</strong>
-            <span>{countLabel(events.length, "შედეგი")}</span>
-          </div>
+    <div className="sg-events-layout">
+      <aside className="sg-filters">
+        <div>
+          <span className="sg-eyebrow">{t.advancedFilters}</span>
+          <h2>{t.filters}</h2>
         </div>
-        <FilterSelect label="სპორტი" value={filters.sport} options={sports} onChange={(sport) => setFilters((current) => ({ ...current, sport }))} />
-        <FilterSelect label="ორგანიზაცია" value={filters.organization} options={organizations} onChange={(organization) => setFilters((current) => ({ ...current, organization }))} />
-        <FilterSelect label="ქვეყანა" value={filters.country} options={countries} onChange={(country) => setFilters((current) => ({ ...current, country }))} />
-        <FilterSelect label="სტატუსი" value={filters.status} options={statuses} onChange={(status) => setFilters((current) => ({ ...current, status }))} />
-        <label className="field">
-          <span>დან</span>
-          <Input type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value }))} />
+        <QuickDateTabs value={filters.date} t={t} onChange={(date) => onUpdateFilters({ date, from: "", to: "" })} />
+        <FilterSelect label={t.sport} placeholder={t.allSports} value={filters.sport} options={sports} onChange={(sport) => onUpdateFilters({ sport })} />
+        <FilterSelect label={t.organization} placeholder={t.allOrganizations} value={filters.organization} options={organizations} onChange={(organization) => onUpdateFilters({ organization })} />
+        <FilterSelect label={t.country} placeholder={t.allCountries} value={filters.country} options={countries} onChange={(country) => onUpdateFilters({ country })} />
+        <FilterSelect
+          label={t.status}
+          placeholder={t.allStatuses}
+          value={filters.status}
+          options={statuses}
+          renderOption={(status) => t.statusLabels[status as Status]}
+          onChange={(status) => onUpdateFilters({ status })}
+        />
+        <label className="sg-field">
+          <span>{t.dateFrom}</span>
+          <Input type="date" value={filters.from} onChange={(event) => onUpdateFilters({ from: event.target.value, date: "" })} />
         </label>
-        <label className="field">
-          <span>მდე</span>
-          <Input type="date" value={filters.to} onChange={(event) => setFilters((current) => ({ ...current, to: event.target.value }))} />
+        <label className="sg-field">
+          <span>{t.dateTo}</span>
+          <Input type="date" value={filters.to} onChange={(event) => onUpdateFilters({ to: event.target.value, date: "" })} />
         </label>
-        <Button
-          className="secondary-button"
-          variant="secondary"
-          onClick={() =>
-            setFilters({
-              sport: "All sports",
-              organization: "All organizations",
-              country: "All countries",
-              status: "All statuses",
-              from: "",
-              to: "",
-              query: "",
-            })
-          }
-        >
-          გასუფთავება
+        <Button variant="secondary" onClick={onClearFilters}>
+          {t.clear}
         </Button>
       </aside>
 
-      <section className="list-panel">
-        <div className="page-header">
+      <section className="sg-panel">
+        <div className="sg-panel-header">
           <div>
-            <span className="eyebrow">განრიგის ბრაუზერი</span>
-            <h1>{title}</h1>
-            <p>{subtitle}</p>
+            <span className="sg-eyebrow">{t.navEvents}</span>
+            <h1>{t.allEvents}</h1>
           </div>
-          <div className="metric-strip">
-            <Metric label="ღონისძიება" value={String(events.length)} />
-            <Metric label="მიმდინარე" value={String(events.filter((event) => event.status === "live").length)} />
-            <Metric label="ქვეყანა" value={String(new Set(events.map((event) => event.country)).size)} />
-          </div>
+          <strong>{events.length} {t.results}</strong>
         </div>
-
-        <div className="toolbar">
-          <label className="search-field">
+        <div className="sg-toolbar">
+          <label className="sg-search">
             <Search size={18} />
-            <Input
-              placeholder="მოძებნე ღონისძიება, ქვეყანა, ორგანიზაცია"
-              value={filters.query}
-              onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
-            />
+            <Input value={filters.query} placeholder={`${t.event}, ${t.country}, ${t.organization}`} onChange={(event) => onUpdateFilters({ query: event.target.value })} />
           </label>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="icon-button" variant="outline" size="icon" title="სიის დაზუსტება">
-                <ListFilter size={18} />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>აქტიური ფილტრები</DialogTitle>
-                <DialogDescription>
-                  სპორტი: {optionLabel(filters.sport)}. ორგანიზაცია: {optionLabel(filters.organization)}. ქვეყანა: {optionLabel(filters.country)}. სტატუსი: {optionLabel(filters.status)}.
-                </DialogDescription>
-              </DialogHeader>
-            </DialogContent>
-          </Dialog>
         </div>
-
-        <EventTable events={events} showEvent={showEvent} />
+        {isLoading ? (
+          <div className="sg-empty-state">{t.loadingEvents}</div>
+        ) : (
+          <ResponsiveEventList
+            events={events}
+            isSaved={isSaved}
+            language={language}
+            t={t}
+            onOpenDetails={onOpenDetails}
+            onToggleSaved={onToggleSaved}
+          />
+        )}
       </section>
-    </div>
-  );
-}
-
-function EventDetails({ event, setPage }: { event: EventRecord; setPage: (page: Page) => void }) {
-  return (
-    <div className="page-stack">
-      <Button className="text-button" variant="ghost" onClick={() => setPage("events")}>
-        ღონისძიებებზე დაბრუნება
-      </Button>
-      <section className="detail-header">
-        <div>
-          <StatusBadge status={event.status} />
-          <h1>{eventTitle(event)}</h1>
-          <p>{organizationLabels[event.organization] ?? event.organization} / {eventLocation(event)} / {dateRange(event)}</p>
-        </div>
-        <Button className="primary-button" asChild>
-          <a href={event.sourceUrl} target="_blank" rel="noreferrer">
-          ოფიციალურ წყაროზე გადასვლა
-          <ArrowUpRight size={17} />
-          </a>
-        </Button>
-      </section>
-
-      <section className="metadata-grid">
-        <MetaCard label="სპორტი" value={sportLabels[event.sport] ?? event.sport} />
-        <MetaCard label="ორგანიზაცია" value={organizationLabels[event.organization] ?? event.organization} />
-        <MetaCard label="ლოკაცია" value={eventLocation(event)} />
-        <MetaCard label="თარიღები" value={dateRange(event)} />
-        <MetaCard label="სტატუსი" value={statusLabelKa[event.status]} />
-        <MetaCard label="წყარო" value="ოფიციალური კალენდარი" />
-      </section>
-
-      <section className="panel">
-        <SectionHeader title="ღონისძიების ეტაპები" meta="განრიგის მეტამონაცემები" />
-        <div className="timeline">
-          <TimelineItem title="წყარო მოძებნილია" text="სკრაპერმა იპოვა ოფიციალური ღონისძიების გვერდი ან კალენდრის ჩანაწერი." />
-          <TimelineItem title="მონაცემები დალაგებულია" text="ლოკაცია, თარიღები, ორგანიზაცია და სტატუსი გადაყვანილია backend ველებში." />
-          <TimelineItem title="გამოქვეყნებულია" text="ღონისძიება ხელმისაწვდომია საჯარო API-სა და სიის ხედებში." />
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function OrganizationPage({
-  events,
-  showEvent,
-  setPage,
-}: {
-  events: EventRecord[];
-  showEvent: (event: EventRecord) => void;
-  setPage: (page: Page) => void;
-}) {
-  const ijfEvents = events.filter((event) => event.organizationSlug === "ijf");
-
-  return (
-    <div className="page-stack">
-      <section className="page-header organization-header">
-        <div>
-          <span className="eyebrow">ორგანიზაცია</span>
-          <h1>ძიუდოს საერთაშორისო ფედერაცია</h1>
-          <p>ძიუდოს ოფიციალური შეჯიბრებების კალენდრის წყარო მომავალი და დასრულებული ღონისძიებებით.</p>
-        </div>
-        <Button className="primary-button" onClick={() => setPage("events")}>
-          ყველა ღონისძიება
-          <ChevronRight size={17} />
-        </Button>
-      </section>
-      <section className="panel">
-        <SectionHeader title="ორგანიზაციის ღონისძიებები" meta={countLabel(ijfEvents.length, "ჩანაწერი")} />
-        <EventTable events={ijfEvents} showEvent={showEvent} />
-      </section>
-    </div>
-  );
-}
-
-function EventTable({
-  events,
-  showEvent,
-  compact = false,
-}: {
-  events: EventRecord[];
-  showEvent: (event: EventRecord) => void;
-  compact?: boolean;
-}) {
-  return (
-    <div className="table-wrap">
-      <Table className={compact ? "compact-table" : ""}>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ღონისძიება</TableHead>
-            <TableHead>სპორტი</TableHead>
-            <TableHead>ორგანიზაცია</TableHead>
-            <TableHead>ლოკაცია</TableHead>
-            <TableHead>თარიღი</TableHead>
-            <TableHead>სტატუსი</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {events.map((event) => (
-            <TableRow key={event.id} onClick={() => showEvent(event)}>
-              <TableCell data-label="ღონისძიება">
-                <strong>{eventTitle(event)}</strong>
-                <span className="row-subtitle">{event.sourceUrl.replace("https://", "")}</span>
-              </TableCell>
-              <TableCell data-label="სპორტი">{sportLabels[event.sport] ?? event.sport}</TableCell>
-              <TableCell data-label="ორგანიზაცია">{organizationLabels[event.organization] ?? event.organization}</TableCell>
-              <TableCell data-label="ლოკაცია">
-                <span className="location-cell">
-                  <MapPin size={15} />
-                  {eventLocation(event)}
-                </span>
-              </TableCell>
-              <TableCell data-label="თარიღი">{dateRange(event)}</TableCell>
-              <TableCell data-label="სტატუსი">
-                <StatusBadge status={event.status} />
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      {events.length === 0 && <div className="empty-state">არჩეულ ფილტრებს არცერთი ღონისძიება არ ემთხვევა.</div>}
     </div>
   );
 }
 
 function FilterSelect({
   label,
+  placeholder,
   value,
   options,
+  renderOption,
   onChange,
 }: {
   label: string;
+  placeholder: string;
   value: string;
   options: string[];
+  renderOption?: (value: string) => string;
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="field">
+    <label className="sg-field">
       <span>{label}</span>
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value || "all"} onValueChange={(nextValue) => onChange(nextValue === "all" ? "" : nextValue)}>
         <SelectTrigger>
-          <SelectValue />
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="all">{placeholder}</SelectItem>
           {options.map((option) => (
             <SelectItem value={option} key={option}>
-              {optionLabel(option)}
+              {renderOption ? renderOption(option) : option}
             </SelectItem>
           ))}
         </SelectContent>
@@ -614,47 +566,69 @@ function FilterSelect({
   );
 }
 
-function StatusBadge({ status }: { status: Status }) {
-  return <Badge className={`status-badge ${status}`}>{statusLabelKa[status]}</Badge>;
-}
+function EventDetailsPage({
+  event,
+  language,
+  t,
+  isSaved,
+  onBack,
+  onToggleSaved,
+}: {
+  event: EventRecord;
+  language: Language;
+  t: Translation;
+  isSaved: boolean;
+  onBack: () => void;
+  onToggleSaved: (eventId: number) => void;
+}) {
+  const metadata = [
+    { label: t.sport, value: event.sport, icon: <ShieldCheck size={17} /> },
+    { label: t.organization, value: event.organization, icon: <Globe2 size={17} /> },
+    { label: t.location, value: formatLocation(event), icon: <Globe2 size={17} /> },
+    { label: t.dates, value: formatDateRange(event, language), icon: <CalendarDays size={17} /> },
+  ];
 
-function SectionHeader({ title, meta }: { title: string; meta: string }) {
   return (
-    <div className="section-header">
-      <h2>{title}</h2>
-      <span>{meta}</span>
-    </div>
-  );
-}
+    <div className="sg-page-stack">
+      <Button className="sg-back-button" variant="ghost" onClick={onBack}>
+        {t.backToEvents}
+      </Button>
+      <section className="sg-detail-header">
+        <div>
+          <div className="sg-detail-kicker">
+            <EventStatusBadge status={event.status} t={t} />
+            <EventSourceLabel sourceUrl={event.sourceUrl} t={t} />
+          </div>
+          <h1>{event.title}</h1>
+          <p>{event.organization} / {formatLocation(event)} / {formatDateRange(event, language)}</p>
+        </div>
+        <div className="sg-detail-actions">
+          <SaveEventButton eventId={event.id} isSaved={isSaved} t={t} onToggle={onToggleSaved} />
+          <Button className="sg-primary-button" asChild>
+            <a href={event.sourceUrl} target="_blank" rel="noreferrer">
+              {t.officialSource}
+              <ChevronRight size={17} />
+            </a>
+          </Button>
+        </div>
+      </section>
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="metric">
-      <strong>{value}</strong>
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function MetaCard({ label, value }: { label: string; value: string }) {
-  return (
-    <Card className="meta-card">
-      <CardContent>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </CardContent>
-    </Card>
-  );
-}
-
-function TimelineItem({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="timeline-item">
-      <span />
-      <div>
-        <strong>{title}</strong>
-        <p>{text}</p>
-      </div>
+      <section className="sg-metadata-grid">
+        {metadata.map((item) => (
+          <div className="sg-metadata-card" key={item.label}>
+            <span>{item.icon}{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+        <div className="sg-metadata-card">
+          <span>{t.status}</span>
+          <EventStatusBadge status={event.status} t={t} />
+        </div>
+        <div className="sg-metadata-card">
+          <span>{t.source}</span>
+          <EventSourceLabel sourceUrl={event.sourceUrl} t={t} />
+        </div>
+      </section>
     </div>
   );
 }
