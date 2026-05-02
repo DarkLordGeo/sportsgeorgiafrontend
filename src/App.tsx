@@ -78,19 +78,19 @@ export function App() {
             <span><strong>{t.appName}</strong><small>{t.tagline}</small></span>
           </button>
           <div className="sg-header-actions">
-            <LanguageToggle language={language} onChange={setLanguage} />
+            <LanguageToggle language={language} t={t} onChange={setLanguage} />
             <button
               className="theme-toggle" type="button"
-              title={theme === "dark" ? "Light mode" : "Dark mode"}
+              title={theme === "dark" ? t.lightMode : t.darkMode}
               onClick={toggleTheme}
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-              <span>{theme === "dark" ? "Light" : "Dark"}</span>
+              <span>{theme === "dark" ? t.light : t.dark}</span>
             </button>
           </div>
         </div>
 
-        <nav className="sg-nav" aria-label="Main navigation">
+        <nav className="sg-nav" aria-label={t.mainNavigation}>
           <NavButton active={location.pathname === "/"} icon={<LayoutDashboard />} label={t.navHome} onClick={() => navigate("/")} />
           <NavButton active={location.pathname.startsWith("/events")} icon={<CalendarDays />} label={t.navEvents} onClick={() => navigate("/events")} />
           <NavButton active={location.pathname === "/saved"} icon={<Star />} label={t.navSaved} onClick={() => navigate("/saved")} />

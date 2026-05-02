@@ -3,5 +3,11 @@ import type { Translation } from "@/i18n/translations";
 import type { Status } from "@/mock/schedule";
 
 export function EventStatusBadge({ status, t }: { status: Status; t: Translation }) {
-  return <Badge className={`event-status-badge ${status}`}>{t.statusLabels[status]}</Badge>;
+  const label = t.statusLabels[status] ?? status;
+
+  return (
+    <Badge variant="outline" className={`event-status-badge ${status}`}>
+      {label}
+    </Badge>
+  );
 }

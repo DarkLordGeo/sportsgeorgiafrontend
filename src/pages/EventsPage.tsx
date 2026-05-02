@@ -1,4 +1,5 @@
 import { Search } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { ResponsiveEventList } from "@/components/ResponsiveEventList";
 import { QuickDateTabs, type DatePreset } from "@/components/QuickDateTabs";
@@ -11,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEvents, useSports, useOrganizations } from "@/hooks/queries";
+import { useInfiniteEvents, useSports, useOrganizations } from "@/hooks/queries";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 import type { Language, Translation } from "@/i18n/translations";
 import type { Status } from "@/mock/schedule";
@@ -43,6 +44,7 @@ function FilterSelect({
 export function EventsPage({ language, t }: { language: Language; t: Translation }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   const filters = {
     date: searchParams.get("date") || "",
@@ -55,17 +57,44 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
     query: searchParams.get("query") || "",
   };
 
-  const { data, isLoading } = useEvents(filters as any);
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteEvents(filters as any);
   const { data: sportsData } = useSports();
   const { data: orgsData } = useOrganizations();
   const { isSaved, toggleSaved } = useSavedEvents();
 
-  const events = data?.results || [];
+  const events = useMemo(
+    () => data?.pages.flatMap((page) => page.results) ?? [],
+    [data],
+  );
+  const totalCount = data?.pages[0]?.count ?? events.length;
+
+  useEffect(() => {
+    const element = loadMoreRef.current;
+    if (!element || !hasNextPage) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "420px 0px" },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
   
   const sports = sportsData?.map((s: any) => s.name) || [];
   const organizations = orgsData?.map((o: any) => o.name) || [];
   const countries = Array.from(new Set(events.map(e => e.country).filter(Boolean))).sort() as string[];
-  const statuses: Status[] = ["upcoming", "live", "completed"];
+  const statuses: Status[] = ["upcoming", "live", "completed", "cancelled", "unknown"];
 
   const updateSearch = (updates: Partial<typeof filters>) => {
     const nextParams = new URLSearchParams(searchParams);
@@ -114,7 +143,7 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
             <span className="sg-eyebrow">{t.navEvents}</span>
             <h1>{t.allEvents}</h1>
           </div>
-          <strong>{data?.count || events.length} {t.results}</strong>
+          <strong>{totalCount} {t.results}</strong>
         </div>
         <div className="sg-toolbar">
           <label className="sg-search">
@@ -125,7 +154,7 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
         {isLoading ? (
           <div className="sg-empty-state">{t.loadingEvents}</div>
         ) : events.length === 0 ? (
-          <div className="sg-empty-state">No events found</div>
+          <div className="sg-empty-state">{t.noEventsFound}</div>
         ) : (
           <ResponsiveEventList
             events={events}
@@ -136,6 +165,9 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
             onToggleSaved={toggleSaved}
           />
         )}
+        <div className="infinite-scroll-sentinel" ref={loadMoreRef}>
+          {isFetchingNextPage ? t.loadingMoreEvents : hasNextPage ? t.scrollForMore : events.length > 0 ? t.allEventsLoaded : ""}
+        </div>
       </section>
     </div>
   );

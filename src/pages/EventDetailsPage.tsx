@@ -20,7 +20,7 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
   }
 
   if (!event) {
-    return <div className="sg-page-stack"><div className="sg-empty-state">Event not found</div></div>;
+    return <div className="sg-page-stack"><div className="sg-empty-state">{t.eventNotFound}</div></div>;
   }
 
   const metadata = [
@@ -45,7 +45,7 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
           <p>{event.organization} / {formatLocation(event)} / {formatDateRange(event, language)}</p>
         </div>
         <div className="sg-detail-actions">
-          <SaveEventButton eventId={event.id} isSaved={isSaved} t={t} onToggle={toggleSaved} />
+          <SaveEventButton eventId={event.id} isSaved={isSaved(event.id)} t={t} onToggle={toggleSaved} />
           <Button className="sg-primary-button" asChild>
             <a href={event.sourceUrl} target="_blank" rel="noreferrer">
               {t.officialSource}

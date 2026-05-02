@@ -9,19 +9,21 @@ export function SaveEventButton({
   onToggle,
 }: {
   eventId: number;
-  isSaved: boolean;
+  isSaved: boolean | ((eventId: number) => boolean);
   t: Translation;
   onToggle: (eventId: number) => void;
 }) {
+  const saved = typeof isSaved === "function" ? isSaved(eventId) : isSaved;
+
   return (
     <Button
       className="save-event-button"
       type="button"
-      variant={isSaved ? "secondary" : "outline"}
+      variant={saved ? "secondary" : "outline"}
       onClick={() => onToggle(eventId)}
     >
-      {isSaved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-      {isSaved ? t.saved : t.save}
+      {saved ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+      {saved ? t.saved : t.save}
     </Button>
   );
 }

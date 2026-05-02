@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 
-const savedEventsKey = "sportsgeorgia-saved-events";
+const legacySavedEventsKey = "sportsgeorgia-saved-events";
+const savedEventsKey = "sportsgeorgia-saved-event-ids-v2";
 
 function readSavedIds() {
   if (typeof window === "undefined") return [];
 
   try {
+    window.localStorage.removeItem(legacySavedEventsKey);
     const parsed = JSON.parse(window.localStorage.getItem(savedEventsKey) ?? "[]");
     return Array.isArray(parsed) ? parsed.map(Number).filter(Number.isFinite) : [];
   } catch {

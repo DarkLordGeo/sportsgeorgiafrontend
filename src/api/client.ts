@@ -17,12 +17,15 @@ export async function fetchJson<T>(url: string): Promise<T> {
 
 
 export const apiClient = {
-  getEvents: async (filters?: Record<string, string>): Promise<PaginatedResponse<any>> => {
+  getEvents: async (filters?: Record<string, string>, page?: number): Promise<PaginatedResponse<any>> => {
     const params = new URLSearchParams();
     if (filters) {
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.set(key, value);
       });
+    }
+    if (page && page > 1) {
+      params.set("page", String(page));
     }
     const queryString = params.toString();
     const url = queryString ? `${API_ROUTES.events}?${queryString}` : API_ROUTES.events;

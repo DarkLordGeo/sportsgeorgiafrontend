@@ -1,4 +1,4 @@
-export type Status = "upcoming" | "live" | "completed";
+export type Status = "upcoming" | "live" | "completed" | "cancelled" | "unknown";
 
 export type EventRecord = {
   id: number;
@@ -29,6 +29,8 @@ export const statusLabels: Record<Status, string> = {
   upcoming: "Upcoming",
   live: "Live",
   completed: "Completed",
+  cancelled: "Cancelled",
+  unknown: "Unknown",
 };
 
 export const mockSports: SportCategory[] = [

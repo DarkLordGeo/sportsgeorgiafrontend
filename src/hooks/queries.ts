@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { type EventRecord } from "@/mock/schedule";
 
@@ -39,17 +39,44 @@ function normalizeEvent(event: any): EventRecord {
   };
 }
 
+function nextPageFromUrl(nextUrl: string | null): number | undefined {
+  if (!nextUrl) return undefined;
+  try {
+    const url = new URL(nextUrl);
+    const page = Number(url.searchParams.get("page"));
+    return Number.isFinite(page) && page > 0 ? page : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeEventsResponse(response: any) {
+  const results = response?.results ?? [];
+  return {
+    ...response,
+    results: results.map(normalizeEvent),
+  };
+}
+
 export function useEvents(filters?: Record<string, string>) {
   return useQuery({
     queryKey: ["events", filters],
     queryFn: async () => {
       const response = await apiClient.getEvents(filters);
-      const results = response?.results ?? [];
-      return {
-        ...response,
-        results: results.map(normalizeEvent),
-      };
+      return normalizeEventsResponse(response);
     },
+  });
+}
+
+export function useInfiniteEvents(filters?: Record<string, string>) {
+  return useInfiniteQuery({
+    queryKey: ["events", "infinite", filters],
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const response = await apiClient.getEvents(filters, pageParam);
+      return normalizeEventsResponse(response);
+    },
+    getNextPageParam: (lastPage) => nextPageFromUrl(lastPage.next),
   });
 }
 

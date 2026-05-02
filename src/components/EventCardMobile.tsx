@@ -22,8 +22,21 @@ export function EventCardMobile({
   onToggleSaved: (eventId: number) => void;
   onOpenDetails: (eventId: number) => void;
 }) {
+  const openDetails = () => onOpenDetails(event.id);
+
   return (
-    <article className="event-card-mobile">
+    <article
+      className="event-card-mobile"
+      role="button"
+      tabIndex={0}
+      onClick={openDetails}
+      onKeyDown={(eventKey) => {
+        if (eventKey.key === "Enter" || eventKey.key === " ") {
+          eventKey.preventDefault();
+          openDetails();
+        }
+      }}
+    >
       <div className="event-card-topline">
         <EventStatusBadge status={event.status} t={t} />
         <EventSourceLabel sourceUrl={event.sourceUrl} t={t} />
@@ -43,8 +56,8 @@ export function EventCardMobile({
           {formatDateRange(event, language)}
         </span>
       </div>
-      <div className="event-card-actions">
-        <Button variant="outline" onClick={() => onOpenDetails(event.id)}>
+      <div className="event-card-actions" onClick={(clickEvent) => clickEvent.stopPropagation()}>
+        <Button variant="outline" onClick={openDetails}>
           {t.openDetails}
         </Button>
         <SaveEventButton
