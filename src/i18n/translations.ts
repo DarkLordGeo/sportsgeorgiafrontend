@@ -3,7 +3,7 @@ export type Language = "ka" | "en";
 export const translations = {
   ka: {
     appName: "sportsgeorgia",
-    tagline: "ქართული სპორტული კალენდარი",
+    tagline: "ქართული სპორტული კალენდარიa",
     navHome: "მთავარი",
     navEvents: "ღონისძიებები",
     navSaved: "შენახული",
