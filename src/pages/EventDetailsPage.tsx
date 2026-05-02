@@ -71,6 +71,7 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
           <EventSourceLabel sourceUrl={event.sourceUrl} t={t} />
         </div>
       </section>
+      
     </div>
   );
 }
