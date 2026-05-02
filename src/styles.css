@@ -2107,6 +2107,25 @@ html.dark input[type="date"] {
   min-width: 0;
 }
 
+.event-card-location {
+  max-width: 100%;
+}
+
+.event-location-flag {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.event-location-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .event-source-label {
   color: var(--sg-text-muted);
   font-size: 12px;

@@ -4,7 +4,7 @@ import { EventSourceLabel } from "@/components/EventSourceLabel";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { SaveEventButton } from "@/components/SaveEventButton";
 import type { Language, Translation } from "@/i18n/translations";
-import { formatDateRange, formatLocation } from "@/lib/event-format";
+import { countryFlagEmoji, formatDateRange, formatLocation } from "@/lib/event-format";
 import type { EventRecord } from "@/mock/schedule";
 
 export function EventCardMobile({
@@ -23,6 +23,7 @@ export function EventCardMobile({
   onOpenDetails: (eventId: number) => void;
 }) {
   const openDetails = () => onOpenDetails(event.id);
+  const countryFlag = countryFlagEmoji(event.country);
 
   return (
     <article
@@ -47,9 +48,14 @@ export function EventCardMobile({
         <span>{event.organization}</span>
       </div>
       <div className="event-card-facts">
-        <span>
+        <span className="event-card-location">
           <MapPin size={15} />
-          {formatLocation(event)}
+          {countryFlag ? (
+            <span className="event-location-flag" aria-hidden="true">
+              {countryFlag}
+            </span>
+          ) : null}
+          <span className="event-location-text">{formatLocation(event)}</span>
         </span>
         <span>
           <CalendarDays size={15} />
