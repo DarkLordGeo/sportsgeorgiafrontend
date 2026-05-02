@@ -16,7 +16,7 @@ createRoot(document.getElementById("root")!).render(
             🔧
           </span>
 
-          <p className="text-sm font-bold text-[#2C475D] text-center ">
+          <p className="text-[12px] md:text-sm font-bold text-[#2C475D] text-center ">
             საიტი განახლების პროცესშია — ცვლილებები მალე დაემატება.
           </p>
         </div>
