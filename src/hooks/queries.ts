@@ -13,24 +13,29 @@ function normalizeStatus(value: unknown): Status {
   return "unknown";
 }
 
+function safeString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
 function normalizeEvent(event: any): EventRecord {
   return {
     id: Number(event.id),
-    title: String(event.title ?? ""),
-    sport: String(event.sport?.name ?? event.sport ?? ""),
-    sportSlug: String(event.sport?.slug ?? event.sport_slug ?? ""),
-    organization: String(event.organization?.name ?? event.organization ?? ""),
-    organizationSlug: String(event.organization?.slug ?? event.organization_slug ?? ""),
-    location: String(event.location ?? ""),
-    city: String(event.city ?? ""),
-    country: String(event.country ?? ""),
-    startDate: String(event.start_date || ""),
-    // null end_date means single-day event — keep as null, don't copy startDate
+    title: safeString(event.title),
+    sport: safeString(event.sport?.name ?? event.sport),
+    sportSlug: safeString(event.sport?.slug ?? event.sport_slug),
+    organization: safeString(event.organization?.name ?? event.organization),
+    organizationSlug: safeString(event.organization?.slug ?? event.organization_slug),
+    location: safeString(event.location),
+    city: safeString(event.city),
+    country: safeString(event.country),
+    startDate: safeString(event.start_date),
+    // Keep null as null — do NOT fall back to startDate
     endDate: event.end_date ? String(event.end_date) : null,
     status: normalizeStatus(event.status),
-    sourceUrl: String(event.source_url || ""),
-    createdAt: String(event.created_at || ""),
-    updatedAt: String(event.updated_at || ""),
+    sourceUrl: safeString(event.source_url),
+    createdAt: safeString(event.created_at),
+    updatedAt: safeString(event.updated_at),
   };
 }
 
