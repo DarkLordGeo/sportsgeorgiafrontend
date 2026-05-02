@@ -15,6 +15,7 @@ export async function fetchJson<T>(url: string): Promise<T> {
   return response.json();
 }
 
+
 export const apiClient = {
   getEvents: async (filters?: Record<string, string>): Promise<PaginatedResponse<any>> => {
     const params = new URLSearchParams();

@@ -14,6 +14,8 @@ export type EventRecord = {
   endDate: string;
   status: Status;
   sourceUrl: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type SportCategory = {

@@ -12,11 +12,7 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
   const navigate = useNavigate();
 
   const events = data?.results || [];
-  // simple client-side sorting for now since backend doesn't support 'upcoming' endpoint directly
-  const upcomingEvents = [...events]
-    .filter((e) => e.endDate >= new Date().toISOString().slice(0, 10))
-    .sort((a, b) => a.startDate.localeCompare(b.startDate))
-    .slice(0, 5);
+  const upcomingEvents = [...events].slice(0, 5);
 
   const onOpenDetails = (id: number) => navigate(`/events/${id}`);
   const onOpenEventsWith = (params: Record<string, string>) => {

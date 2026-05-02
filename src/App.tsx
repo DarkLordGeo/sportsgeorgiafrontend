@@ -64,6 +64,7 @@ export function App() {
   // Load all events for SavedEventsPage since it expects EventRecord[]
   // In a real app we might fetch by ID list, but this is a simple adaptation
   const { data: allEventsData } = useEvents();
+
   const allEvents = allEventsData?.results || [];
   const { savedIds, isSaved, toggleSaved } = useSavedEvents();
   const savedEvents = allEvents.filter((event) => savedIds.includes(event.id));

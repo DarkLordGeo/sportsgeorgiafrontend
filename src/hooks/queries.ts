@@ -2,8 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { type EventRecord } from "@/mock/schedule";
 
-// Re-use normalizeEvent if necessary, or let backend shape match what we need.
-// Assuming backend snake_case needs to be mapped to camelCase.
+export type Status = "upcoming" | "live" | "completed" | "cancelled" | "unknown";
+
+const VALID_STATUSES: Status[] = ["upcoming", "live", "completed", "cancelled", "unknown"];
+
+function normalizeStatus(value: unknown): Status {
+  if (typeof value === "string" && VALID_STATUSES.includes(value as Status)) {
+    return value as Status;
+  }
+  return "unknown";
+}
+
 function normalizeEvent(event: any): EventRecord {
   return {
     id: Number(event.id),
@@ -15,10 +24,13 @@ function normalizeEvent(event: any): EventRecord {
     location: String(event.location ?? ""),
     city: String(event.city ?? ""),
     country: String(event.country ?? ""),
-    startDate: String(event.start_date ?? event.startDate ?? ""),
-    endDate: String(event.end_date ?? event.endDate ?? event.start_date ?? ""),
-    status: event.status === "live" || event.status === "completed" ? event.status : "upcoming",
-    sourceUrl: String(event.source_url ?? event.sourceUrl ?? event.official_source_url ?? ""),
+    startDate: String(event.start_date || ""),
+    // null end_date means single-day event — keep as null, don't copy startDate
+    endDate: event.end_date ? String(event.end_date) : null,
+    status: normalizeStatus(event.status),
+    sourceUrl: String(event.source_url || ""),
+    createdAt: String(event.created_at || ""),
+    updatedAt: String(event.updated_at || ""),
   };
 }
 
@@ -27,9 +39,10 @@ export function useEvents(filters?: Record<string, string>) {
     queryKey: ["events", filters],
     queryFn: async () => {
       const response = await apiClient.getEvents(filters);
+      const results = response?.results ?? [];
       return {
         ...response,
-        results: response.results.map(normalizeEvent)
+        results: results.map(normalizeEvent),
       };
     },
   });
@@ -51,7 +64,7 @@ export function useSports() {
     queryKey: ["sports"],
     queryFn: async () => {
       const response = await apiClient.getSports();
-      return response.results;
+      return response.results ?? [];
     },
   });
 }
@@ -61,7 +74,7 @@ export function useOrganizations() {
     queryKey: ["organizations"],
     queryFn: async () => {
       const response = await apiClient.getOrganizations();
-      return response.results;
+      return response.results ?? [];
     },
   });
 }
