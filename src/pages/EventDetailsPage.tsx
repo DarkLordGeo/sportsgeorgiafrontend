@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronRight, Globe2, ShieldCheck } from "lucide-react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { EventSourceLabel } from "@/components/EventSourceLabel";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { SaveEventButton } from "@/components/SaveEventButton";
@@ -12,6 +12,7 @@ import { formatDateRange, formatLocation } from "@/lib/event-format";
 export function EventDetailsPage({ language, t }: { language: Language; t: Translation }) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: event, isLoading } = useEvent(id!);
   const { isSaved, toggleSaved } = useSavedEvents();
 
@@ -32,7 +33,11 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
 
   return (
     <div className="sg-page-stack">
-      <Button className="sg-back-button" variant="ghost" onClick={() => navigate("/events")}>
+      <Button
+        className="sg-back-button"
+        variant="ghost"
+        onClick={() => navigate(location.search ? `/events${location.search}` : "/events")}
+      >
         {t.backToEvents}
       </Button>
       <section className="sg-detail-header">

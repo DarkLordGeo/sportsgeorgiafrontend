@@ -2,9 +2,19 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/api/client";
 import { type EventRecord } from "@/mock/schedule";
 
-export type Status = "upcoming" | "live" | "completed" | "cancelled" | "unknown";
+export type Status = "upcoming" | "live" | "completed" | "cancelled" | "postponed" | "unknown";
+export type EventFilters = Partial<{
+  search: string;
+  sport: string;
+  organization: string;
+  country: string;
+  city: string;
+  status: Status;
+  date_from: string;
+  date_to: string;
+}>;
 
-const VALID_STATUSES: Status[] = ["upcoming", "live", "completed", "cancelled", "unknown"];
+const VALID_STATUSES: Status[] = ["upcoming", "live", "completed", "cancelled", "postponed", "unknown"];
 
 function normalizeStatus(value: unknown): Status {
   if (typeof value === "string" && VALID_STATUSES.includes(value as Status)) {
@@ -58,7 +68,7 @@ function normalizeEventsResponse(response: any) {
   };
 }
 
-export function useEvents(filters?: Record<string, string>) {
+export function useEvents(filters?: EventFilters) {
   return useQuery({
     queryKey: ["events", filters],
     queryFn: async () => {
@@ -68,7 +78,7 @@ export function useEvents(filters?: Record<string, string>) {
   });
 }
 
-export function useInfiniteEvents(filters?: Record<string, string>) {
+export function useInfiniteEvents(filters?: EventFilters) {
   return useInfiniteQuery({
     queryKey: ["events", "infinite", filters],
     initialPageParam: 1,

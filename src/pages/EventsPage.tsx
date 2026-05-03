@@ -12,15 +12,64 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useInfiniteEvents, useSports, useOrganizations } from "@/hooks/queries";
+import { useInfiniteEvents, useSports, useOrganizations, type EventFilters } from "@/hooks/queries";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 import type { Language, Translation } from "@/i18n/translations";
 import type { Status } from "@/mock/schedule";
 
+type FilterOption = {
+  label: string;
+  value: string;
+};
+
+const STATUS_OPTIONS: Status[] = ["upcoming", "live", "completed", "cancelled", "postponed", "unknown"];
+
+function formatDateParam(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getPresetRange(preset: Exclude<DatePreset, "">) {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const end = new Date(start);
+
+  if (preset === "week") {
+    const dayOfWeek = start.getDay();
+    const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    start.setDate(start.getDate() - offset);
+    end.setDate(start.getDate() + 6);
+  } else if (preset === "month") {
+    end.setMonth(start.getMonth() + 1, 0);
+  }
+
+  return {
+    date_from: formatDateParam(start),
+    date_to: formatDateParam(end),
+  };
+}
+
+function presetFromDateRange(dateFrom: string, dateTo: string): DatePreset {
+  if (!dateFrom || !dateTo) return "";
+
+  const todayRange = getPresetRange("today");
+  if (dateFrom === todayRange.date_from && dateTo === todayRange.date_to) return "today";
+
+  const weekRange = getPresetRange("week");
+  if (dateFrom === weekRange.date_from && dateTo === weekRange.date_to) return "week";
+
+  const monthRange = getPresetRange("month");
+  if (dateFrom === monthRange.date_from && dateTo === monthRange.date_to) return "month";
+
+  return "";
+}
+
 function FilterSelect({
   label, placeholder, value, options, renderOption, onChange
 }: {
-  label: string; placeholder: string; value: string; options: string[];
+  label: string; placeholder: string; value: string; options: FilterOption[];
   renderOption?: (value: string) => string; onChange: (value: string) => void;
 }) {
   return (
@@ -31,8 +80,8 @@ function FilterSelect({
         <SelectContent>
           <SelectItem value="all">{placeholder}</SelectItem>
           {options.map((option) => (
-            <SelectItem value={option} key={option}>
-              {renderOption ? renderOption(option) : option}
+            <SelectItem value={option.value} key={option.value}>
+              {renderOption ? renderOption(option.value) : option.label}
             </SelectItem>
           ))}
         </SelectContent>
@@ -46,24 +95,27 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
   const navigate = useNavigate();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const filters = {
-    date: searchParams.get("date") || "",
+  const filters: EventFilters = {
+    search: searchParams.get("search") || "",
     sport: searchParams.get("sport") || "",
     organization: searchParams.get("organization") || "",
     country: searchParams.get("country") || "",
+    city: searchParams.get("city") || "",
     status: searchParams.get("status") || "",
-    from: searchParams.get("from") || "",
-    to: searchParams.get("to") || "",
-    query: searchParams.get("query") || "",
+    date_from: searchParams.get("date_from") || "",
+    date_to: searchParams.get("date_to") || "",
   };
+  const datePreset = presetFromDateRange(filters.date_from || "", filters.date_to || "");
 
   const {
     data,
     isLoading,
+    isError,
+    error,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
-  } = useInfiniteEvents(filters as any);
+  } = useInfiniteEvents(filters);
   const { data: sportsData } = useSports();
   const { data: orgsData } = useOrganizations();
   const { isSaved, toggleSaved } = useSavedEvents();
@@ -91,12 +143,25 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
   
-  const sports = sportsData?.map((s: any) => s.name) || [];
-  const organizations = orgsData?.map((o: any) => o.name) || [];
-  const countries = Array.from(new Set(events.map(e => e.country).filter(Boolean))).sort() as string[];
-  const statuses: Status[] = ["upcoming", "live", "completed", "cancelled", "unknown"];
+  const sports = (sportsData ?? []).map((sport: any) => ({
+    label: String(sport.name),
+    value: String(sport.slug),
+  }));
+  const organizations = (orgsData ?? [])
+    .filter((org: any) => !filters.sport || String(org.sport?.slug ?? org.sport_slug) === filters.sport)
+    .map((org: any) => ({
+      label: String(org.name),
+      value: String(org.slug),
+    }));
+  const countries = Array.from(new Set(events.map((event) => event.country).filter(Boolean)))
+    .sort((left, right) => left.localeCompare(right))
+    .map((country) => ({ label: country, value: country }));
+  const cities = Array.from(new Set(events.map((event) => event.city).filter(Boolean)))
+    .sort((left, right) => left.localeCompare(right))
+    .map((city) => ({ label: city, value: city }));
+  const statuses = STATUS_OPTIONS.map((status) => ({ label: t.statusLabels[status], value: status }));
 
-  const updateSearch = (updates: Partial<typeof filters>) => {
+  const updateSearch = (updates: Partial<EventFilters>) => {
     const nextParams = new URLSearchParams(searchParams);
     Object.entries(updates).forEach(([key, value]) => {
       if (value) nextParams.set(key, value);
@@ -114,10 +179,21 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
           <span className="sg-eyebrow">{t.advancedFilters}</span>
           <h2>{t.filters}</h2>
         </div>
-        <QuickDateTabs value={filters.date as DatePreset} t={t} onChange={(date) => updateSearch({ date, from: "", to: "" })} />
+        <QuickDateTabs
+          value={datePreset}
+          t={t}
+          onChange={(preset) => {
+            if (!preset) {
+              updateSearch({ date_from: "", date_to: "" });
+              return;
+            }
+            updateSearch(getPresetRange(preset));
+          }}
+        />
         <FilterSelect label={t.sport} placeholder={t.allSports} value={filters.sport} options={sports} onChange={(sport) => updateSearch({ sport })} />
         <FilterSelect label={t.organization} placeholder={t.allOrganizations} value={filters.organization} options={organizations} onChange={(organization) => updateSearch({ organization })} />
         <FilterSelect label={t.country} placeholder={t.allCountries} value={filters.country} options={countries} onChange={(country) => updateSearch({ country })} />
+        <FilterSelect label={t.city} placeholder={t.allCities} value={filters.city || ""} options={cities} onChange={(city) => updateSearch({ city })} />
         <FilterSelect
           label={t.status}
           placeholder={t.allStatuses}
@@ -128,11 +204,11 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
         />
         <label className="sg-field">
           <span>{t.dateFrom}</span>
-          <Input type="date" value={filters.from} onChange={(e) => updateSearch({ from: e.target.value, date: "" })} />
+          <Input type="date" value={filters.date_from || ""} onChange={(e) => updateSearch({ date_from: e.target.value })} />
         </label>
         <label className="sg-field">
           <span>{t.dateTo}</span>
-          <Input type="date" value={filters.to} onChange={(e) => updateSearch({ to: e.target.value, date: "" })} />
+          <Input type="date" value={filters.date_to || ""} onChange={(e) => updateSearch({ date_to: e.target.value })} />
         </label>
         <Button variant="secondary" onClick={clearFilters}>{t.clear}</Button>
       </aside>
@@ -148,20 +224,32 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
         <div className="sg-toolbar">
           <label className="sg-search">
             <Search size={18} />
-            <Input value={filters.query} placeholder={`${t.event}, ${t.country}, ${t.organization}`} onChange={(e) => updateSearch({ query: e.target.value })} />
+            <Input
+              value={filters.search || ""}
+              placeholder={`${t.event}, ${t.city}, ${t.country}, ${t.organization}`}
+              onChange={(e) => updateSearch({ search: e.target.value })}
+            />
           </label>
         </div>
         {isLoading ? (
           <div className="sg-empty-state">{t.loadingEvents}</div>
+        ) : isError ? (
+          <div className="sg-empty-state">{error instanceof Error ? error.message : t.apiError}</div>
         ) : events.length === 0 ? (
-          <div className="sg-empty-state">{t.noEventsFound}</div>
+          <div className="sg-empty-state">{t.noEventsMatchFilters}</div>
         ) : (
           <ResponsiveEventList
             events={events}
             isSaved={isSaved}
             language={language}
             t={t}
-            onOpenDetails={(id) => navigate(`/events/${id}`)}
+            onOpenDetails={(id) => {
+              const search = searchParams.toString();
+              navigate({
+                pathname: `/events/${id}`,
+                search: search ? `?${search}` : "",
+              });
+            }}
             onToggleSaved={toggleSaved}
           />
         )}

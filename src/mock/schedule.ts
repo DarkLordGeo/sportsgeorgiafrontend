@@ -1,4 +1,4 @@
-export type Status = "upcoming" | "live" | "completed" | "cancelled" | "unknown";
+export type Status = "upcoming" | "live" | "completed" | "cancelled" | "postponed" | "unknown";
 
 export type EventRecord = {
   id: number;
@@ -11,7 +11,7 @@ export type EventRecord = {
   city: string;
   country: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;
   status: Status;
   sourceUrl: string;
   createdAt?: string;
@@ -30,6 +30,7 @@ export const statusLabels: Record<Status, string> = {
   live: "Live",
   completed: "Completed",
   cancelled: "Cancelled",
+  postponed: "Postponed",
   unknown: "Unknown",
 };
 

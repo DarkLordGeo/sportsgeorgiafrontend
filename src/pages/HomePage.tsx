@@ -9,7 +9,31 @@ import type { EventRecord, Status } from "@/mock/schedule";
 import { useNavigate } from "react-router-dom";
 
 function dateOnly(value: Date): string {
-  return value.toISOString().slice(0, 10);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getQuickRange(kind: "today" | "week" | "month") {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const rangeStart = new Date(start);
+  const rangeEnd = new Date(start);
+
+  if (kind === "week") {
+    const dayOfWeek = rangeStart.getDay();
+    const offset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    rangeStart.setDate(rangeStart.getDate() - offset);
+    rangeEnd.setDate(rangeStart.getDate() + 6);
+  } else if (kind === "month") {
+    rangeEnd.setMonth(rangeStart.getMonth() + 1, 0);
+  }
+
+  return {
+    date_from: dateOnly(rangeStart),
+    date_to: dateOnly(rangeEnd),
+  };
 }
 
 function deriveDisplayStatus(event: EventRecord): Status {
@@ -98,16 +122,16 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
       </section>
 
       <section className="sg-quick-links sg-home-quick-links" aria-label={t.quickLinks}>
-        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith({ date: "today" })}>
+        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith(getQuickRange("today"))}>
           <span>{t.today}</span><ChevronRight size={16} />
         </button>
-        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith({ date: "week" })}>
+        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith(getQuickRange("week"))}>
           <span>{t.thisWeek}</span><ChevronRight size={16} />
         </button>
-        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith({ date: "month" })}>
+        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith(getQuickRange("month"))}>
           <span>{t.thisMonth}</span><ChevronRight size={16} />
         </button>
-        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith({ sport: "Judo" })}>
+        <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith({ sport: "judo" })}>
           <span>{t.judo}</span><ChevronRight size={16} />
         </button>
       </section>
