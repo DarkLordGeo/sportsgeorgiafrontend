@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://sportsgeorgia.netlify.app/</loc>
+    <loc>https://sportsgeorgiafrontend.mr-ergeshidze.workers.dev/</loc>
   </url>
   <url>
-    <loc>https://sportsgeorgia.netlify.app/events</loc>
+    <loc>https://sportsgeorgiafrontend.mr-ergeshidze.workers.dev/events</loc>
   </url>
   <url>
-    <loc>https://sportsgeorgia.netlify.app/saved</loc>
+    <loc>https://sportsgeorgiafrontend.mr-ergeshidze.workers.dev/saved</loc>
   </url>
 </urlset>

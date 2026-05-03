@@ -1,4 +1,5 @@
 import { CalendarDays, ChevronRight, Globe2, MapPin, ShieldCheck } from "lucide-react";
+import { useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { EventSourceLabel } from "@/components/EventSourceLabel";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
@@ -8,6 +9,40 @@ import { useEvent } from "@/hooks/queries";
 import { useSavedEvents } from "@/hooks/useSavedEvents";
 import type { Language, Translation } from "@/i18n/translations";
 import { formatDateRange, formatLocation } from "@/lib/event-format";
+import type { EventRecord } from "@/mock/schedule";
+
+function EventJsonLd({ event }: { event: EventRecord }) {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    "name": event.title,
+    "startDate": event.startDate,
+    "endDate": event.endDate || event.startDate,
+    "eventStatus": event.status === "cancelled" 
+      ? "https://schema.org/EventCancelled" 
+      : "https://schema.org/EventScheduled",
+    "location": {
+      "@type": "Place",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": event.city,
+        "addressCountry": event.country
+      }
+    },
+    "organizer": {
+      "@type": "Organization",
+      "name": event.organization,
+      "url": event.sourceUrl
+    }
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
 
 export function EventDetailsPage({ language, t }: { language: Language; t: Translation }) {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +50,12 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
   const location = useLocation();
   const { data: event, isLoading } = useEvent(id!);
   const { isSaved, toggleSaved } = useSavedEvents();
+
+  useEffect(() => {
+    if (event) {
+      document.title = `${event.title} | SportsGeorgia`;
+    }
+  }, [event]);
 
   if (isLoading) {
     return <div className="sg-page-stack"><div className="sg-empty-state">{t.loadingEvents}</div></div>;
@@ -33,6 +74,7 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
 
   return (
     <div className="sg-page-stack">
+      <EventJsonLd event={event} />
       <Button
         className="sg-back-button"
         variant="ghost"

@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://sportsgeorgia.netlify.app/sitemap.xml
+Sitemap: https://sportsgeorgiafrontend.mr-ergeshidze.workers.dev/sitemap.xml
