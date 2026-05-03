@@ -67,19 +67,36 @@ function presetFromDateRange(dateFrom: string, dateTo: string): DatePreset {
   return "";
 }
 
+function mergeFilterOptions(...groups: Array<Array<FilterOption | null | undefined>>): FilterOption[] {
+  return Array.from(
+    new Map(
+      groups
+        .flat()
+        .filter((option): option is FilterOption => Boolean(option?.value))
+        .map((option) => [option.value, option]),
+    ).values(),
+  );
+}
+
 function FilterSelect({
-  label, placeholder, value, options, renderOption, onChange
+  label, placeholder, value, options, renderOption, onChange, helperText, emptyLabel
 }: {
   label: string; placeholder: string; value: string; options: FilterOption[];
-  renderOption?: (value: string) => string; onChange: (value: string) => void;
+  renderOption?: (value: string) => string; onChange: (value: string) => void; helperText?: string; emptyLabel?: string;
 }) {
+  const isDisabled = options.length === 0;
   return (
     <label className="sg-field">
       <span>{label}</span>
       <Select value={value || "all"} onValueChange={(v) => onChange(v === "all" ? "" : v)}>
-        <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+        <SelectTrigger disabled={isDisabled}><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">{placeholder}</SelectItem>
+          {isDisabled ? (
+            <SelectItem value="__empty" disabled>
+              {emptyLabel ?? "No options yet"}
+            </SelectItem>
+          ) : null}
           {options.map((option) => (
             <SelectItem value={option.value} key={option.value}>
               {renderOption ? renderOption(option.value) : option.label}
@@ -87,6 +104,7 @@ function FilterSelect({
           ))}
         </SelectContent>
       </Select>
+      {helperText ? <small className="sg-field-helper">{helperText}</small> : null}
     </label>
   );
 }
@@ -162,22 +180,45 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
     return () => window.clearTimeout(timeout);
   }, [filters.search, searchDraft, searchParams]);
   
-  const sports = (sportsData ?? []).map((sport: any) => ({
+  const sportsFromApi = (sportsData ?? []).map((sport: any) => ({
     label: String(sport.name),
     value: String(sport.slug),
   }));
-  const organizations = (orgsData ?? [])
+  const sportsFromEvents = events
+    .filter((event) => event.sportSlug && event.sport)
+    .map((event) => ({ label: event.sport, value: event.sportSlug }));
+  const sports = mergeFilterOptions(
+    sportsFromApi,
+    sportsFromEvents,
+    filters.sport ? [{ label: filters.sport, value: filters.sport }] : [],
+  );
+
+  const organizationsFromApi = (orgsData ?? [])
     .filter((org: any) => !filters.sport || String(org.sport?.slug ?? org.sport_slug) === filters.sport)
     .map((org: any) => ({
       label: String(org.name),
       value: String(org.slug),
     }));
-  const countries = Array.from(new Set(events.map((event) => event.country).filter(Boolean)))
-    .sort((left, right) => left.localeCompare(right))
-    .map((country) => ({ label: country, value: country }));
-  const cities = Array.from(new Set(events.map((event) => event.city).filter(Boolean)))
-    .sort((left, right) => left.localeCompare(right))
-    .map((city) => ({ label: city, value: city }));
+  const organizationsFromEvents = events
+    .filter((event) => (!filters.sport || event.sportSlug === filters.sport) && event.organizationSlug && event.organization)
+    .map((event) => ({ label: event.organization, value: event.organizationSlug }));
+  const organizations = mergeFilterOptions(
+    organizationsFromApi,
+    organizationsFromEvents,
+    filters.organization ? [{ label: filters.organization, value: filters.organization }] : [],
+  );
+  const countries = mergeFilterOptions(
+    Array.from(new Set(events.map((event) => event.country).filter(Boolean)))
+      .sort((left, right) => left.localeCompare(right))
+      .map((country) => ({ label: country, value: country })),
+    filters.country ? [{ label: filters.country, value: filters.country }] : [],
+  );
+  const cities = mergeFilterOptions(
+    Array.from(new Set(events.map((event) => event.city).filter(Boolean)))
+      .sort((left, right) => left.localeCompare(right))
+      .map((city) => ({ label: city, value: city })),
+    filters.city ? [{ label: filters.city, value: filters.city }] : [],
+  );
   const statuses = STATUS_OPTIONS.map((status) => ({ label: t.statusLabels[status], value: status }));
 
   const updateSearch = (updates: Partial<EventFilters>) => {
@@ -195,6 +236,10 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
     setSearchParams(new URLSearchParams());
   };
   const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+  const sportHelper = sports.length > 0 ? `${sports.length} available now` : "No live sport options yet";
+  const organizationHelper = organizations.length > 0 ? `${organizations.length} available now` : "No live organizations yet";
+  const countryHelper = countries.length > 0 ? `${countries.length} available on this list` : "No location options for these results yet";
+  const cityHelper = cities.length > 0 ? `${cities.length} available on this list` : "No city options for these results yet";
   const activeFilterChips = [
     filters.search ? { key: "search", label: `Search: ${filters.search}`, onRemove: () => { setSearchDraft(""); updateSearch({ search: "" }); } } : null,
     filters.sport ? { key: "sport", label: `${t.sport}: ${sports.find((option) => option.value === filters.sport)?.label ?? filters.sport}`, onRemove: () => updateSearch({ sport: "", organization: "" }) } : null,
@@ -247,10 +292,42 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
 
           <div className="sg-filter-section">
             <div className="sg-filter-section-title">{t.filters}</div>
-            <FilterSelect label={t.sport} placeholder={t.allSports} value={filters.sport} options={sports} onChange={(sport) => updateSearch({ sport, organization: "" })} />
-            <FilterSelect label={t.organization} placeholder={t.allOrganizations} value={filters.organization} options={organizations} onChange={(organization) => updateSearch({ organization })} />
-            <FilterSelect label={t.country} placeholder={t.allCountries} value={filters.country} options={countries} onChange={(country) => updateSearch({ country })} />
-            <FilterSelect label={t.city} placeholder={t.allCities} value={filters.city || ""} options={cities} onChange={(city) => updateSearch({ city })} />
+            <FilterSelect
+              label={t.sport}
+              placeholder={t.allSports}
+              value={filters.sport}
+              options={sports}
+              onChange={(sport) => updateSearch({ sport, organization: "" })}
+              helperText={sportHelper}
+              emptyLabel="No sports available"
+            />
+            <FilterSelect
+              label={t.organization}
+              placeholder={t.allOrganizations}
+              value={filters.organization}
+              options={organizations}
+              onChange={(organization) => updateSearch({ organization })}
+              helperText={organizationHelper}
+              emptyLabel="No organizations available"
+            />
+            <FilterSelect
+              label={t.country}
+              placeholder={t.allCountries}
+              value={filters.country}
+              options={countries}
+              onChange={(country) => updateSearch({ country })}
+              helperText={countryHelper}
+              emptyLabel="No countries in these results"
+            />
+            <FilterSelect
+              label={t.city}
+              placeholder={t.allCities}
+              value={filters.city || ""}
+              options={cities}
+              onChange={(city) => updateSearch({ city })}
+              helperText={cityHelper}
+              emptyLabel="No cities in these results"
+            />
             <FilterSelect
               label={t.status}
               placeholder={t.allStatuses}

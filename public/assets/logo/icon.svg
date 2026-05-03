@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">SportsGeorgia icon</title>
+  <desc id="desc">Circular blue locator mark with a teal star at the center.</desc>
+  <defs>
+    <linearGradient id="sgBlue" x1="0%" y1="10%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a7cff" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <path
+      d="M256 64
+         C179 64 116 127 116 204
+         L116 236
+         L164 236
+         L164 204
+         C164 154 205 112 256 112
+         Z"
+      fill="url(#sgBlue)"
+    />
+    <path
+      d="M396 204
+         C396 127 333 64 256 64
+         L256 112
+         C307 112 348 154 348 204
+         L348 236
+         L396 236
+         Z"
+      fill="url(#sgBlue)"
+    />
+    <path
+      d="M116 276
+         C116 322 138 367 175 397
+         L208 362
+         C183 342 168 311 164 276
+         L116 276
+         Z"
+      fill="url(#sgBlue)"
+    />
+    <path
+      d="M348 276
+         C344 311 329 342 304 362
+         L337 397
+         C374 367 396 322 396 276
+         L348 276
+         Z"
+      fill="url(#sgBlue)"
+    />
+    <path
+      d="M256 352
+         C276 352 292 368 292 388
+         C292 430 266 456 256 466
+         C246 456 220 430 220 388
+         C220 368 236 352 256 352
+         Z"
+      fill="url(#sgBlue)"
+    />
+    <path
+      d="M256 178
+         L265 206
+         L293 206
+         L271 223
+         L279 252
+         L256 235
+         L233 252
+         L241 223
+         L219 206
+         L247 206
+         Z"
+      fill="#55b099"
+    />
+  </g>
+</svg>

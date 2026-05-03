@@ -1,4 +1,4 @@
-import { CalendarDays, CircleDot, LayoutDashboard, Moon, Star, Sun } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Moon, Star, Sun } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -106,8 +106,14 @@ export function App() {
       <header className="sg-header">
         <div className="sg-topbar">
           <button className="sg-brand" type="button" onClick={() => navigate("/")}>
-            <span className="sg-brand-mark"><CircleDot size={19} /></span>
-            <span><strong>{t.appName}</strong><small>{t.tagline}</small></span>
+            <img
+              className="sg-brand-logo"
+              src="/assets/logo/logo.svg"
+              alt="SportsGeorgia"
+              width="252"
+              height="62"
+            />
+            <span className="sr-only">{t.appName}</span>
           </button>
           <div className="sg-header-actions">
             <LanguageToggle language={language} t={t} onChange={setLanguage} />

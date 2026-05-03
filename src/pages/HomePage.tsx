@@ -148,6 +148,10 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
         <button className="sg-quick-link" type="button" onClick={() => onOpenEventsWith({ sport: "judo" })}>
           <span>{t.judo}</span><ChevronRight size={16} />
         </button>
+        <div className="sg-quick-link sg-quick-link-disabled" aria-disabled="true" title="Football support coming soon">
+          <span>Football</span>
+          <small>coming soon</small>
+        </div>
       </section>
 
       <section className="sg-home-highlight-strip" aria-label={t.highlightUpcoming}>

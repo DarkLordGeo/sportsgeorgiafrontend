@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320" role="img" aria-labelledby="title desc">
+  <title id="title">SportsGeorgia logo</title>
+  <desc id="desc">SportsGeorgia wordmark with circular blue locator icon and teal star center.</desc>
+  <defs>
+    <linearGradient id="sgBlue" x1="0%" y1="10%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a7cff" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <g transform="translate(24 30)">
+      <path
+        d="M128 18
+           C73 18 28 63 28 118
+           L28 140
+           L62 140
+           L62 118
+           C62 82 91 52 128 52
+           Z"
+        fill="url(#sgBlue)"
+      />
+      <path
+        d="M228 118
+           C228 63 183 18 128 18
+           L128 52
+           C165 52 194 82 194 118
+           L194 140
+           L228 140
+           Z"
+        fill="url(#sgBlue)"
+      />
+      <path
+        d="M28 170
+           C28 203 44 235 70 257
+           L93 232
+           C75 218 65 196 62 170
+           L28 170
+           Z"
+        fill="url(#sgBlue)"
+      />
+      <path
+        d="M194 170
+           C191 196 181 218 163 232
+           L186 257
+           C212 235 228 203 228 170
+           L194 170
+           Z"
+        fill="url(#sgBlue)"
+      />
+      <path
+        d="M128 224
+           C143 224 154 235 154 250
+           C154 281 135 300 128 308
+           C121 300 102 281 102 250
+           C102 235 113 224 128 224
+           Z"
+        fill="url(#sgBlue)"
+      />
+      <path
+        d="M128 100
+           L134 119
+           L153 119
+           L138 130
+           L143 150
+           L128 138
+           L113 150
+           L118 130
+           L103 119
+           L122 119
+           Z"
+        fill="#55b099"
+      />
+    </g>
+    <text x="292" y="208" font-family="Inter, Arial, Helvetica, sans-serif" font-size="118" font-weight="700" letter-spacing="-2">
+      <tspan fill="url(#sgBlue)">Sports</tspan><tspan fill="#2c475d">Georgia</tspan>
+    </text>
+  </g>
+</svg>
