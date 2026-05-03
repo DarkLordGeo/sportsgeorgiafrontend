@@ -1,5 +1,6 @@
-import { ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronRight, Globe2, MapPin } from "lucide-react";
 import { useMemo } from "react";
+import { EventCardSkeletonGrid } from "@/components/EventCardSkeletonGrid";
 import { ResponsiveEventList } from "@/components/ResponsiveEventList";
 import { Button } from "@/components/ui/button";
 import { useEvents } from "@/hooks/queries";
@@ -70,8 +71,13 @@ function isGeorgiaEvent(event: EventRecord): boolean {
 }
 
 export function HomePage({ language, t }: { language: Language; t: Translation }) {
-  const { data, isLoading } = useEvents();
-  const { data: georgiaData, isLoading: isGeorgiaLoading } = useEvents({ country: "Georgia" });
+  const { data, isLoading, isError, refetch } = useEvents();
+  const {
+    data: georgiaData,
+    isLoading: isGeorgiaLoading,
+    isError: isGeorgiaError,
+    refetch: refetchGeorgia,
+  } = useEvents({ country: "Georgia" });
   const { isSaved, toggleSaved } = useSavedEvents();
   const navigate = useNavigate();
 
@@ -94,31 +100,39 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
     const search = new URLSearchParams(params).toString();
     navigate(search ? `/events?${search}` : "/events");
   };
+  const totalUpcoming = events.length;
 
   return (
     <div className="sg-page-stack sg-home-stack">
-      <section className="sg-hero sg-home-hero">
-        <div className="sg-home-hero-copy">
-          <span className="sg-eyebrow">{t.homeOfficialSchedules}</span>
-          <h1>{t.homeHeroTitle}</h1>
-          <p>{t.homeHeroSubtitle}</p>
-        </div>
-        <div className="sg-home-hero-actions">
-          <Button className="sg-primary-button" onClick={() => onOpenEventsWith({})}>
+      <section className="sg-overview-shell">
+        <div className="sg-overview-heading">
+          <div>
+            <span className="sg-eyebrow">{t.homeOfficialSchedules}</span>
+            <h1>{t.homeHeroTitle}</h1>
+            <p>{t.homeHeroSubtitle}</p>
+          </div>
+          <Button className="sg-primary-button sg-overview-button" onClick={() => onOpenEventsWith({})}>
             {t.browseEvents}
             <ChevronRight size={17} />
           </Button>
-          <Button className="sg-home-secondary-button" variant="secondary" onClick={() => navigate("/saved")}>
-            {t.viewSaved}
-          </Button>
         </div>
-      </section>
-
-      <section className="sg-home-highlight-strip" aria-label={t.highlightUpcoming}>
-        <span>{t.highlightUpcoming}</span>
-        <strong>{t.highlightTbilisiCadetCup}</strong>
-        <strong>{t.highlightDushanbeGrandSlam}</strong>
-        <strong>{t.highlightQazaqstanGrandSlam}</strong>
+        <div className="sg-overview-metrics" aria-label="Overview">
+          <div className="sg-overview-metric">
+            <span>{t.navEvents}</span>
+            <strong>{totalUpcoming}</strong>
+            <small>{t.upcomingEvents}</small>
+          </div>
+          <div className="sg-overview-metric">
+            <span>{t.localPriority}</span>
+            <strong>{georgiaEvents.length}</strong>
+            <small>{t.upcomingInGeorgia}</small>
+          </div>
+          <div className="sg-overview-metric">
+            <span>{t.internationalCalendar}</span>
+            <strong>{internationalEvents.length}</strong>
+            <small>{t.upcomingInternationalEvents}</small>
+          </div>
+        </div>
       </section>
 
       <section className="sg-quick-links sg-home-quick-links" aria-label={t.quickLinks}>
@@ -136,19 +150,39 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
         </button>
       </section>
 
+      <section className="sg-home-highlight-strip" aria-label={t.highlightUpcoming}>
+        <span>{t.highlightUpcoming}</span>
+        <strong>{t.highlightTbilisiCadetCup}</strong>
+        <strong>{t.highlightDushanbeGrandSlam}</strong>
+        <strong>{t.highlightQazaqstanGrandSlam}</strong>
+      </section>
+
       <section className="sg-panel sg-home-preview-section">
         <div className="sg-panel-header">
           <div>
             <span className="sg-eyebrow">{t.localPriority}</span>
             <h2>{t.upcomingInGeorgia}</h2>
           </div>
-          <strong>{georgiaEvents.length} {t.results}</strong>
+          <div className="sg-section-actions">
+            <strong>{georgiaEvents.length} {t.results}</strong>
+            <Button className="sg-inline-action" variant="ghost" onClick={() => onOpenEventsWith({ country: "Georgia" })}>
+              <MapPin size={15} />
+              {t.country}
+            </Button>
+          </div>
         </div>
         {isLoading || isGeorgiaLoading ? (
-          <div className="sg-empty-state">{t.loadingEvents}</div>
+          <EventCardSkeletonGrid count={3} />
+        ) : isGeorgiaError ? (
+          <div className="sg-empty-state sg-state-stack">
+            <div>Failed to load events. Try again.</div>
+            <Button variant="outline" onClick={() => void refetchGeorgia()}>
+              Try again
+            </Button>
+          </div>
         ) : georgiaEvents.length === 0 ? (
           <div className="sg-home-empty-state">
-            <p>{t.georgiaEventsEmpty}</p>
+            <p>No Georgian events right now.</p>
             <Button className="sg-primary-button" onClick={() => onOpenEventsWith({})}>
               {t.browseAllUpcomingEvents}
             </Button>
@@ -171,15 +205,28 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
             <span className="sg-eyebrow">{t.internationalCalendar}</span>
             <h2>{t.upcomingInternationalEvents}</h2>
           </div>
-          <strong>{internationalEvents.length} {t.results}</strong>
+          <div className="sg-section-actions">
+            <strong>{internationalEvents.length} {t.results}</strong>
+            <Button className="sg-inline-action" variant="ghost" onClick={() => onOpenEventsWith({ sport: "judo" })}>
+              <Globe2 size={15} />
+              {t.judo}
+            </Button>
+          </div>
         </div>
         {isLoading ? (
-          <div className="sg-empty-state">{t.loadingEvents}</div>
+          <EventCardSkeletonGrid count={6} />
+        ) : isError ? (
+          <div className="sg-empty-state sg-state-stack">
+            <div>Failed to load events. Try again.</div>
+            <Button variant="outline" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
         ) : internationalEvents.length === 0 ? (
           <div className="sg-empty-state">{t.internationalEventsEmpty}</div>
         ) : (
           <ResponsiveEventList
-            events={internationalEvents}
+            events={internationalEvents.slice(0, 12)}
             isSaved={isSaved}
             language={language}
             t={t}
@@ -187,6 +234,30 @@ export function HomePage({ language, t }: { language: Language; t: Translation }
             onToggleSaved={toggleSaved}
           />
         )}
+      </section>
+
+      <section className="sg-panel sg-home-summary-band">
+        <div className="sg-home-summary-card">
+          <CalendarDays size={16} />
+          <div>
+            <strong>{t.today}</strong>
+            <span>{t.quickLinks}</span>
+          </div>
+        </div>
+        <div className="sg-home-summary-card">
+          <MapPin size={16} />
+          <div>
+            <strong>{t.upcomingInGeorgia}</strong>
+            <span>{t.localPriority}</span>
+          </div>
+        </div>
+        <div className="sg-home-summary-card">
+          <Globe2 size={16} />
+          <div>
+            <strong>{t.upcomingInternationalEvents}</strong>
+            <span>{t.allEvents}</span>
+          </div>
+        </div>
       </section>
     </div>
   );

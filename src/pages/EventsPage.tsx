@@ -1,6 +1,7 @@
-import { Search } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
+import { CalendarDays, Filter, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { EventCardSkeletonGrid } from "@/components/EventCardSkeletonGrid";
 import { ResponsiveEventList } from "@/components/ResponsiveEventList";
 import { QuickDateTabs, type DatePreset } from "@/components/QuickDateTabs";
 import { Button } from "@/components/ui/button";
@@ -94,6 +95,8 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(searchParams.get("search") || "");
 
   const filters: EventFilters = {
     search: searchParams.get("search") || "",
@@ -112,6 +115,7 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
     isLoading,
     isError,
     error,
+    refetch,
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
@@ -142,6 +146,21 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
     observer.observe(element);
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  useEffect(() => {
+    setSearchDraft(filters.search || "");
+  }, [filters.search]);
+
+  useEffect(() => {
+    const normalizedDraft = searchDraft.trim();
+    if ((filters.search || "") === normalizedDraft) return;
+
+    const timeout = window.setTimeout(() => {
+      updateSearch({ search: normalizedDraft });
+    }, 400);
+
+    return () => window.clearTimeout(timeout);
+  }, [filters.search, searchDraft, searchParams]);
   
   const sports = (sportsData ?? []).map((sport: any) => ({
     label: String(sport.name),
@@ -167,76 +186,173 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
       if (value) nextParams.set(key, value);
       else nextParams.delete(key);
     });
+    nextParams.delete("page");
     setSearchParams(nextParams);
   };
 
-  const clearFilters = () => setSearchParams(new URLSearchParams());
+  const clearFilters = () => {
+    setSearchDraft("");
+    setSearchParams(new URLSearchParams());
+  };
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterChips = [
+    filters.search ? { key: "search", label: `Search: ${filters.search}`, onRemove: () => { setSearchDraft(""); updateSearch({ search: "" }); } } : null,
+    filters.sport ? { key: "sport", label: `${t.sport}: ${sports.find((option) => option.value === filters.sport)?.label ?? filters.sport}`, onRemove: () => updateSearch({ sport: "", organization: "" }) } : null,
+    filters.organization ? { key: "organization", label: `${t.organization}: ${organizations.find((option) => option.value === filters.organization)?.label ?? filters.organization}`, onRemove: () => updateSearch({ organization: "" }) } : null,
+    filters.country ? { key: "country", label: `${t.country}: ${filters.country}`, onRemove: () => updateSearch({ country: "" }) } : null,
+    filters.city ? { key: "city", label: `${t.city}: ${filters.city}`, onRemove: () => updateSearch({ city: "" }) } : null,
+    filters.status ? { key: "status", label: `${t.status}: ${t.statusLabels[filters.status as Status] ?? filters.status}`, onRemove: () => updateSearch({ status: "" }) } : null,
+    filters.date_from ? { key: "date_from", label: `${t.dateFrom}: ${filters.date_from}`, onRemove: () => updateSearch({ date_from: "" }) } : null,
+    filters.date_to ? { key: "date_to", label: `${t.dateTo}: ${filters.date_to}`, onRemove: () => updateSearch({ date_to: "" }) } : null,
+  ].filter(Boolean) as Array<{ key: string; label: string; onRemove: () => void }>;
+  const isGridLoading = isLoading || (isFetchingNextPage && events.length === 0);
 
   return (
     <div className="sg-events-layout">
-      <aside className="sg-filters">
-        <div>
-          <span className="sg-eyebrow">{t.advancedFilters}</span>
-          <h2>{t.filters}</h2>
-        </div>
-        <QuickDateTabs
-          value={datePreset}
-          t={t}
-          onChange={(preset) => {
-            if (!preset) {
-              updateSearch({ date_from: "", date_to: "" });
-              return;
-            }
-            updateSearch(getPresetRange(preset));
-          }}
-        />
-        <FilterSelect label={t.sport} placeholder={t.allSports} value={filters.sport} options={sports} onChange={(sport) => updateSearch({ sport })} />
-        <FilterSelect label={t.organization} placeholder={t.allOrganizations} value={filters.organization} options={organizations} onChange={(organization) => updateSearch({ organization })} />
-        <FilterSelect label={t.country} placeholder={t.allCountries} value={filters.country} options={countries} onChange={(country) => updateSearch({ country })} />
-        <FilterSelect label={t.city} placeholder={t.allCities} value={filters.city || ""} options={cities} onChange={(city) => updateSearch({ city })} />
-        <FilterSelect
-          label={t.status}
-          placeholder={t.allStatuses}
-          value={filters.status}
-          options={statuses}
-          renderOption={(status) => t.statusLabels[status as Status]}
-          onChange={(status) => updateSearch({ status })}
-        />
-        <label className="sg-field">
-          <span>{t.dateFrom}</span>
-          <Input type="date" value={filters.date_from || ""} onChange={(e) => updateSearch({ date_from: e.target.value })} />
-        </label>
-        <label className="sg-field">
-          <span>{t.dateTo}</span>
-          <Input type="date" value={filters.date_to || ""} onChange={(e) => updateSearch({ date_to: e.target.value })} />
-        </label>
-        <Button variant="secondary" onClick={clearFilters}>{t.clear}</Button>
-      </aside>
+      <div className={`sg-filter-shell ${filtersOpen ? "is-open" : ""}`}>
+        <aside className="sg-filters">
+          <div className="sg-filters-heading">
+            <div>
+              <span className="sg-eyebrow">{t.advancedFilters}</span>
+              <h2>{t.filters}</h2>
+            </div>
+            <Button className="sg-filter-close" variant="ghost" size="icon-sm" onClick={() => setFiltersOpen(false)}>
+              <X size={16} />
+            </Button>
+          </div>
+
+          <label className="sg-field">
+            <span>{t.event}</span>
+            <Input
+              value={searchDraft}
+              placeholder={`${t.event}, ${t.city}, ${t.country}`}
+              onChange={(e) => setSearchDraft(e.target.value)}
+            />
+          </label>
+
+          <div className="sg-filter-section">
+            <div className="sg-filter-section-title">{t.quickLinks}</div>
+            <QuickDateTabs
+              value={datePreset}
+              t={t}
+              onChange={(preset) => {
+                if (!preset) {
+                  updateSearch({ date_from: "", date_to: "" });
+                  return;
+                }
+                updateSearch(getPresetRange(preset));
+              }}
+            />
+          </div>
+
+          <div className="sg-filter-section">
+            <div className="sg-filter-section-title">{t.filters}</div>
+            <FilterSelect label={t.sport} placeholder={t.allSports} value={filters.sport} options={sports} onChange={(sport) => updateSearch({ sport, organization: "" })} />
+            <FilterSelect label={t.organization} placeholder={t.allOrganizations} value={filters.organization} options={organizations} onChange={(organization) => updateSearch({ organization })} />
+            <FilterSelect label={t.country} placeholder={t.allCountries} value={filters.country} options={countries} onChange={(country) => updateSearch({ country })} />
+            <FilterSelect label={t.city} placeholder={t.allCities} value={filters.city || ""} options={cities} onChange={(city) => updateSearch({ city })} />
+            <FilterSelect
+              label={t.status}
+              placeholder={t.allStatuses}
+              value={filters.status}
+              options={statuses}
+              renderOption={(status) => t.statusLabels[status as Status]}
+              onChange={(status) => updateSearch({ status })}
+            />
+          </div>
+
+          <div className="sg-filter-section">
+            <div className="sg-filter-section-title">{t.dates}</div>
+            <div className="sg-date-fields">
+              <label className="sg-field">
+                <span>{t.dateFrom}</span>
+                <Input type="date" value={filters.date_from || ""} onChange={(e) => updateSearch({ date_from: e.target.value })} />
+              </label>
+              <label className="sg-field">
+                <span>{t.dateTo}</span>
+                <Input type="date" value={filters.date_to || ""} onChange={(e) => updateSearch({ date_to: e.target.value })} />
+              </label>
+            </div>
+          </div>
+
+          <Button className="sg-clear-button" variant="secondary" onClick={clearFilters}>{t.clear}</Button>
+        </aside>
+      </div>
 
       <section className="sg-panel">
         <div className="sg-panel-header">
           <div>
             <span className="sg-eyebrow">{t.navEvents}</span>
             <h1>{t.allEvents}</h1>
+            <p className="sg-section-copy">{t.homeHeroSubtitle}</p>
           </div>
-          <strong>{totalCount} {t.results}</strong>
+          <div className="sg-section-actions">
+            <strong>{totalCount} {t.results}</strong>
+            <Button
+              className="sg-filter-toggle"
+              variant="outline"
+              onClick={() => setFiltersOpen((current) => !current)}
+            >
+              <Filter size={16} />
+              {t.filters}
+              {activeFiltersCount > 0 ? <span className="sg-filter-count">{activeFiltersCount}</span> : null}
+            </Button>
+          </div>
         </div>
         <div className="sg-toolbar">
           <label className="sg-search">
             <Search size={18} />
             <Input
-              value={filters.search || ""}
+              value={searchDraft}
               placeholder={`${t.event}, ${t.city}, ${t.country}, ${t.organization}`}
-              onChange={(e) => updateSearch({ search: e.target.value })}
+              onChange={(e) => setSearchDraft(e.target.value)}
             />
           </label>
+          <div className="sg-toolbar-quickdates">
+            <Button className="sg-date-chip" variant="outline" onClick={() => updateSearch(getPresetRange("today"))}>
+              <CalendarDays size={15} />
+              {t.today}
+            </Button>
+            <Button className="sg-date-chip" variant="outline" onClick={() => updateSearch(getPresetRange("week"))}>
+              {t.thisWeek}
+            </Button>
+            <Button className="sg-date-chip" variant="outline" onClick={() => updateSearch(getPresetRange("month"))}>
+              {t.thisMonth}
+            </Button>
+          </div>
         </div>
-        {isLoading ? (
-          <div className="sg-empty-state">{t.loadingEvents}</div>
+        {activeFilterChips.length > 0 ? (
+          <div className="sg-active-filters" aria-label="Active filters">
+            <span className="sg-active-filters-label">Active filters</span>
+            <div className="sg-active-filters-list">
+              {activeFilterChips.map((chip) => (
+                <button className="sg-filter-chip" key={chip.key} type="button" onClick={chip.onRemove}>
+                  <span>{chip.label}</span>
+                  <X size={14} />
+                </button>
+              ))}
+              <Button className="sg-clear-inline" variant="ghost" onClick={clearFilters}>
+                {t.clear}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {isGridLoading ? (
+          <EventCardSkeletonGrid count={6} />
         ) : isError ? (
-          <div className="sg-empty-state">{error instanceof Error ? error.message : t.apiError}</div>
+          <div className="sg-empty-state sg-state-stack">
+            <div>{t.apiError}</div>
+            <Button variant="outline" onClick={() => void refetch()}>
+              {("retry" in t ? (t as Translation & { retry: string }).retry : "Try again")}
+            </Button>
+          </div>
         ) : events.length === 0 ? (
-          <div className="sg-empty-state">{t.noEventsMatchFilters}</div>
+          <div className="sg-empty-state sg-state-stack">
+            <div>{t.noEventsMatchFilters}</div>
+            <Button variant="outline" onClick={clearFilters}>
+              {t.clear}
+            </Button>
+          </div>
         ) : (
           <ResponsiveEventList
             events={events}
@@ -254,7 +370,7 @@ export function EventsPage({ language, t }: { language: Language; t: Translation
           />
         )}
         <div className="infinite-scroll-sentinel" ref={loadMoreRef}>
-          {isFetchingNextPage ? t.loadingMoreEvents : hasNextPage ? t.scrollForMore : events.length > 0 ? t.allEventsLoaded : ""}
+          {isFetchingNextPage && events.length > 0 ? t.loadingMoreEvents : hasNextPage ? t.scrollForMore : events.length > 0 ? t.allEventsLoaded : ""}
         </div>
       </section>
     </div>

@@ -11,17 +11,12 @@ createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="w-full justify-center border border-[#C4D2D4] bg-[#F5F8F6] shadow-sm px-4 py-1 flex items-center gap-3 ">
-          <span className="text-base leading-none mt-0.5">
-            🔧
-          </span>
-
-          <p className="text-[12px] md:text-sm font-bold text-[#2C475D] text-center ">
-            საიტი განახლების პროცესშია — ცვლილებები მალე დაემატება.
-          </p>
+        <div className="sg-status-banner" role="status">
+          <span className="sg-status-banner-label">Status</span>
+          <p>Schedule data and filters are live. More federation coverage will appear here as it is connected.</p>
         </div>
         <App />
       </BrowserRouter>
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

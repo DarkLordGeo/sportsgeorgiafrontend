@@ -4,8 +4,25 @@ import { EventSourceLabel } from "@/components/EventSourceLabel";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
 import { SaveEventButton } from "@/components/SaveEventButton";
 import type { Language, Translation } from "@/i18n/translations";
-import { countryFlagEmoji, formatDateRange, formatLocation } from "@/lib/event-format";
+import { countryFlagEmoji, formatDate, formatDateRange, formatLocation } from "@/lib/event-format";
 import type { EventRecord } from "@/mock/schedule";
+
+function getDateParts(dateValue: string, language: Language) {
+  const source = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(source.getTime())) {
+    return {
+      month: "",
+      day: dateValue,
+      year: "",
+    };
+  }
+
+  return {
+    month: new Intl.DateTimeFormat(language === "ka" ? "ka-GE" : "en-US", { month: "short" }).format(source),
+    day: new Intl.DateTimeFormat(language === "ka" ? "ka-GE" : "en-US", { day: "2-digit" }).format(source),
+    year: new Intl.DateTimeFormat(language === "ka" ? "ka-GE" : "en-US", { year: "numeric" }).format(source),
+  };
+}
 
 export function EventCardMobile({
   event,
@@ -24,6 +41,10 @@ export function EventCardMobile({
 }) {
   const openDetails = () => onOpenDetails(event.id);
   const countryFlag = countryFlagEmoji(event.country);
+  const startDateParts = getDateParts(event.startDate, language);
+  const endDateLabel = event.endDate && event.endDate !== event.startDate
+    ? formatDate(event.endDate, language)
+    : null;
 
   return (
     <article
@@ -38,14 +59,31 @@ export function EventCardMobile({
         }
       }}
     >
-      <div className="event-card-topline">
-        <EventStatusBadge status={event.status} t={t} />
-        <EventSourceLabel sourceUrl={event.sourceUrl} t={t} />
+      <div className="event-card-header">
+        <div className="event-card-dateblock" aria-label={formatDateRange(event, language)}>
+          <span className="event-card-date-month">{startDateParts.month}</span>
+          <strong className="event-card-date-day">{startDateParts.day}</strong>
+          <span className="event-card-date-year">{startDateParts.year}</span>
+        </div>
+        <div className="event-card-topline">
+          <EventStatusBadge status={event.status} t={t} />
+          <EventSourceLabel sourceUrl={event.sourceUrl} t={t} />
+        </div>
       </div>
-      <h3>{event.title}</h3>
-      <div className="event-card-meta">
-        <span>{event.sport}</span>
-        <span>{event.organization}</span>
+      <div className="event-card-body">
+        <h3>{event.title}</h3>
+        <div className="event-card-date-range">
+          <CalendarDays size={15} />
+          <span>
+            {formatDate(event.startDate, language)}
+            {endDateLabel ? ` - ${endDateLabel}` : ""}
+          </span>
+        </div>
+        <div className="event-card-meta">
+          <span className="event-card-meta-item">{event.sport}</span>
+          <span className="event-card-meta-separator" aria-hidden="true">/</span>
+          <span className="event-card-meta-item">{event.organization}</span>
+        </div>
       </div>
       <div className="event-card-facts">
         <span className="event-card-location">
@@ -63,7 +101,7 @@ export function EventCardMobile({
         </span>
       </div>
       <div className="event-card-actions" onClick={(clickEvent) => clickEvent.stopPropagation()}>
-        <Button variant="outline" onClick={openDetails}>
+        <Button className="event-card-primary-action" variant="outline" onClick={openDetails}>
           {t.openDetails}
         </Button>
         <SaveEventButton

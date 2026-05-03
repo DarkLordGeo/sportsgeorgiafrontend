@@ -23,11 +23,12 @@ export function SavedEventsPage({
         <div>
           <span className="sg-eyebrow">{t.navSaved}</span>
           <h1>{t.savedEvents}</h1>
+          <p className="sg-section-copy">Quick access to the events you want to revisit.</p>
         </div>
         <strong>{events.length} {t.results}</strong>
       </div>
       {events.length === 0 ? (
-        <div className="sg-empty-state">{t.noSavedEvents}</div>
+        <div className="sg-empty-state">No saved events yet.</div>
       ) : (
         <ResponsiveEventList
           events={events}

@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronRight, Globe2, ShieldCheck } from "lucide-react";
+import { CalendarDays, ChevronRight, Globe2, MapPin, ShieldCheck } from "lucide-react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { EventSourceLabel } from "@/components/EventSourceLabel";
 import { EventStatusBadge } from "@/components/EventStatusBadge";
@@ -27,7 +27,7 @@ export function EventDetailsPage({ language, t }: { language: Language; t: Trans
   const metadata = [
     { label: t.sport, value: event.sport, icon: <ShieldCheck size={17} /> },
     { label: t.organization, value: event.organization, icon: <Globe2 size={17} /> },
-    { label: t.location, value: formatLocation(event), icon: <Globe2 size={17} /> },
+    { label: t.location, value: formatLocation(event), icon: <MapPin size={17} /> },
     { label: t.dates, value: formatDateRange(event, language), icon: <CalendarDays size={17} /> },
   ];
 

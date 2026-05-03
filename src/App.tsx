@@ -46,6 +46,16 @@ function useLanguageMode() {
   return { language, setLanguage };
 }
 
+function upsertMeta(selector: string, attribute: "name" | "property", value: string, content: string) {
+  let element = document.head.querySelector(selector) as HTMLMetaElement | null;
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute(attribute, value);
+    document.head.appendChild(element);
+  }
+  element.setAttribute("content", content);
+}
+
 function NavButton({ active, icon, label, onClick }: { active: boolean; icon: ReactNode; label: string; onClick: () => void }) {
   return (
     <button className={`sg-nav-button ${active ? "active" : ""}`} type="button" onClick={onClick}>
@@ -68,6 +78,28 @@ export function App() {
   const allEvents = allEventsData?.results || [];
   const { savedIds, isSaved, toggleSaved } = useSavedEvents();
   const savedEvents = allEvents.filter((event) => savedIds.includes(event.id));
+
+  useEffect(() => {
+    const baseTitle = "SportsGeorgia";
+    const pageTitle = location.pathname === "/"
+      ? `${baseTitle} | Sports Schedule Aggregator`
+      : location.pathname.startsWith("/events/")
+        ? `${baseTitle} | Event Details`
+        : location.pathname.startsWith("/events")
+          ? `${baseTitle} | Events`
+          : `${baseTitle} | Saved Events`;
+
+    const description = location.pathname.startsWith("/events")
+      ? "Browse upcoming Georgian and international sports events with filters for date, sport, organization, country, city, and status."
+      : "Track official sports schedules in a clean dashboard built for fast scanning, saved events, and Georgia-first event discovery.";
+
+    document.title = pageTitle;
+    upsertMeta('meta[name="description"]', "name", "description", description);
+    upsertMeta('meta[property="og:title"]', "property", "og:title", pageTitle);
+    upsertMeta('meta[property="og:description"]', "property", "og:description", description);
+    upsertMeta('meta[property="og:type"]', "property", "og:type", "website");
+    upsertMeta('meta[property="og:url"]', "property", "og:url", window.location.href);
+  }, [location.pathname]);
 
   return (
     <div className="sg-app">
